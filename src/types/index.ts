@@ -49,6 +49,7 @@ export interface Game {
 
 export interface PlayerScore {
   playerId: string;           // Player UUID
+  name?: string;              // Player Name
   role?: string;              // Faction, Corporation, Character, Color (e.g. "에코라인", "파랑")
   startPlayer?: boolean;      // Was this player the starting player?
   score?: number;             // Final numerical score

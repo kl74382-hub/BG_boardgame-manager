@@ -24,8 +24,8 @@ export class BGDatabase extends Dexie {
 export const db = new BGDatabase();
 
 const DEFAULT_SETTINGS: AppSettings = {
-  userName: '보드게이머',
-  bggUsername: '',
+  userName: 'Nana',
+  bggUsername: 'Bitnara',
   bggApiToken: '',
   autoSyncBgg: false,
   theme: 'dark',
@@ -49,18 +49,20 @@ export function saveStoredSettings(settings: AppSettings) {
   localStorage.setItem('bg_stats_settings', JSON.stringify(settings));
 }
 
-// Seed the database if completely empty
+const SEED_VERSION_KEY = 'bg_seed_version_2026_full';
+
+// Seed the database if empty or upgrade from old 10-game dummy seed
 export async function ensureSeedData() {
+  if (typeof window === 'undefined') return;
+
   const gameCount = await db.games.count();
-  if (gameCount === 0) {
-    await db.transaction('rw', db.games, db.players, db.locations, db.plays, db.challenges, async () => {
-      await db.games.bulkAdd(SEED_GAMES);
-      await db.players.bulkAdd(SEED_PLAYERS);
-      await db.locations.bulkAdd(SEED_LOCATIONS);
-      await db.plays.bulkAdd(SEED_PLAYS);
-      await db.challenges.bulkAdd(SEED_CHALLENGES);
-    });
-    console.log('Database seeded with default Korean board game dataset.');
+  const currentSeedVersion = localStorage.getItem(SEED_VERSION_KEY);
+
+  // If empty or user had the old 10-game placeholder data
+  if (gameCount === 0 || (!currentSeedVersion && gameCount <= 10)) {
+    await resetDatabaseToSeed();
+    localStorage.setItem(SEED_VERSION_KEY, 'v2_full');
+    console.log(`Database seeded with user dataset (${SEED_GAMES.length} games, ${SEED_PLAYS.length} plays, ${SEED_PLAYERS.length} players).`);
   }
 }
 

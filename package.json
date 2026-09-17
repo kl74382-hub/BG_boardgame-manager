@@ -1,10 +1,12 @@
 {
   "name": "bg-stats-pro",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local": "node --require ./fs-shim.js node_modules/next/dist/bin/next dev",
     "build": "next build",
+    "build:local": "node --require ./fs-shim.js node_modules/next/dist/bin/next build",
     "start": "next start",
     "lint": "next lint"
   },

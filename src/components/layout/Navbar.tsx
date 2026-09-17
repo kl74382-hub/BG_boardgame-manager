@@ -12,6 +12,7 @@ import {
   Settings,
   Plus
 } from 'lucide-react';
+import { APP_VERSION } from '@/lib/version';
 
 interface NavItem {
   name: string;
@@ -45,9 +46,14 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLogPlay }) => {
             🎲
           </div>
           <div>
-            <h1 className="font-extrabold text-lg text-white tracking-tight flex items-center gap-1.5">
-              BG Stats <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/30">KR</span>
-            </h1>
+            <div className="flex items-center gap-1.5">
+              <h1 className="font-extrabold text-lg text-white tracking-tight">
+                BG Stats <span className="text-xs px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/30">KR</span>
+              </h1>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                v{APP_VERSION}
+              </span>
+            </div>
             <p className="text-xs text-slate-400 font-medium">BGG & 보드라이프 연동</p>
           </div>
         </div>
@@ -91,7 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLogPlay }) => {
             <span>BGG / BoardLife Bridge</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
           </div>
-          <p>© 2026 BG Stats Pro KR</p>
+          <p>© 2026 BG Stats Pro KR • v{APP_VERSION}</p>
         </div>
       </aside>
 

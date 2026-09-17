@@ -16,13 +16,15 @@ import {
   Coins,
   ShieldCheck,
   Sparkles,
-  ArrowUpDown
+  ArrowUpDown,
+  FileSpreadsheet
 } from 'lucide-react';
 import { db } from '@/lib/db';
 import { Header } from '@/components/layout/Header';
 import { GameCard } from '@/components/collection/GameCard';
 import { GameDetailModal } from '@/components/collection/GameDetailModal';
 import { AddGameModal } from '@/components/collection/AddGameModal';
+import { BatchCollectionModal } from '@/components/collection/BatchCollectionModal';
 import { LogPlayModal } from '@/components/plays/LogPlayModal';
 import { Game, GameStatus, Play } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
@@ -46,6 +48,7 @@ export default function CollectionPage() {
   // Modals
   const [selectedGameForDetail, setSelectedGameForDetail] = useState<Game | null>(null);
   const [isAddGameOpen, setIsAddGameOpen] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [isLogPlayOpen, setIsLogPlayOpen] = useState(false);
   const [targetGameIdForPlay, setTargetGameIdForPlay] = useState<string | undefined>(undefined);
 
@@ -126,13 +129,23 @@ export default function CollectionPage() {
         onSearchChange={setSearchQuery}
         searchPlaceholder="게임명, 초성(ㅌㅍㅁ, ㅅㄷ), 발매사 검색..."
         rightAction={
-          <button
-            onClick={() => setIsAddGameOpen(true)}
-            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">새 게임 추가</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsBatchModalOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
+              title="CSV 파일로 컬렉션 일괄 등록 및 내보내기"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+              <span className="hidden sm:inline">CSV 일괄 관리</span>
+            </button>
+            <button
+              onClick={() => setIsAddGameOpen(true)}
+              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">새 게임 추가</span>
+            </button>
+          </div>
         }
       />
 
@@ -308,12 +321,21 @@ export default function CollectionPage() {
           <div className="p-12 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-3">
             <p className="text-base font-bold text-slate-300">검색 조건에 맞는 게임이 없습니다.</p>
             <p className="text-xs text-slate-500">필터를 초기화하거나 새 게임을 추가해 보세요.</p>
-            <button
-              onClick={() => setIsAddGameOpen(true)}
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow"
-            >
-              새 게임 추가하기
-            </button>
+            <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+              <button
+                onClick={() => setIsAddGameOpen(true)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold shadow transition-colors"
+              >
+                새 게임 추가하기
+              </button>
+              <button
+                onClick={() => setIsBatchModalOpen(true)}
+                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold shadow transition-colors flex items-center gap-1.5"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <span>CSV 일괄 등록하기</span>
+              </button>
+            </div>
           </div>
         )}
 
@@ -334,6 +356,14 @@ export default function CollectionPage() {
       <AddGameModal
         isOpen={isAddGameOpen}
         onClose={() => setIsAddGameOpen(false)}
+        onOpenBatchModal={() => setIsBatchModalOpen(true)}
+      />
+
+      <BatchCollectionModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        allGames={games}
+        filteredGames={sortedGames}
       />
 
       <LogPlayModal

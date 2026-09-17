@@ -19,12 +19,17 @@ import {
   ExternalLink,
   HelpCircle,
   Dices,
-  BookOpen
+  BookOpen,
+  FileSpreadsheet,
+  Info,
+  Tag
 } from 'lucide-react';
 import { db, getStoredSettings, saveStoredSettings, resetDatabaseToSeed } from '@/lib/db';
 import { Header } from '@/components/layout/Header';
 import { exportToBGStatsJson, parseBGStatsJson } from '@/lib/bgstats-io';
 import { PlayerManager } from '@/components/players/PlayerManager';
+import { BatchCollectionModal } from '@/components/collection/BatchCollectionModal';
+import { APP_VERSION, APP_RELEASE_DATE, APP_CHANNEL, RELEASE_HISTORY } from '@/lib/version';
 import { AppSettings, Game, Play, Player } from '@/types';
 
 export default function SettingsPage() {
@@ -39,6 +44,7 @@ export default function SettingsPage() {
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
   const [isSyncingPlays, setIsSyncingPlays] = useState(false);
   const [showTokenHelp, setShowTokenHelp] = useState(false);
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
 
   useEffect(() => {
     setSettings(getStoredSettings());
@@ -415,7 +421,32 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* 3. Database Maintenance */}
+        {/* 3. CSV Collection Bulk Management (Import / Export) */}
+        <section className="p-6 rounded-2xl bg-slate-900/90 border border-emerald-500/30 space-y-5 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white">컬렉션 CSV 일괄 관리 (Excel 호환)</h3>
+                <p className="text-xs text-slate-400">
+                  Microsoft Excel(.csv) 파일로 전체 보드게임 컬렉션을 일괄 등록하거나 백업 다운로드합니다.
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setIsBatchModalOpen(true)}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-colors shrink-0"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              <span>CSV 일괄 등록 / 내보내기 열기</span>
+            </button>
+          </div>
+        </section>
+
+        {/* 4. Database Maintenance */}
         <section className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
           <h3 className="text-base font-bold text-white flex items-center gap-2">
             <RotateCcw className="w-4 h-4 text-rose-400" />
@@ -434,7 +465,53 @@ export default function SettingsPage() {
           </button>
         </section>
 
+        {/* 5. Version & Build Information */}
+        <section className="p-6 rounded-2xl bg-slate-900/90 border border-indigo-500/20 space-y-4 shadow-xl">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                <Tag className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <span>버전 및 빌드 관리</span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                    v{APP_VERSION}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 uppercase font-mono">
+                    {APP_CHANNEL}
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  릴리스 일자: {APP_RELEASE_DATE} • Next.js 14.2 & React 18
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/60 space-y-3">
+            <div className="flex items-center justify-between text-xs text-slate-300 font-semibold border-b border-slate-700/50 pb-2">
+              <span>주요 업데이트 내역 (v{APP_VERSION})</span>
+              <span className="text-slate-500">Official Release</span>
+            </div>
+            <ul className="space-y-1.5">
+              {RELEASE_HISTORY[0]?.features.map((feat, idx) => (
+                <li key={idx} className="text-xs text-slate-300 flex items-start gap-2">
+                  <span className="text-indigo-400 font-bold mt-0.5">•</span>
+                  <span>{feat}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
       </div>
+
+      <BatchCollectionModal
+        isOpen={isBatchModalOpen}
+        onClose={() => setIsBatchModalOpen(false)}
+        allGames={games}
+      />
     </div>
   );
 }

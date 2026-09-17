@@ -9,7 +9,8 @@ import {
   Check, 
   ExternalLink,
   Library,
-  Sparkles
+  Sparkles,
+  FileSpreadsheet
 } from 'lucide-react';
 import { db, getStoredSettings } from '@/lib/db';
 import { Game, GameStatus } from '@/types';
@@ -18,9 +19,10 @@ import { searchBGG, fetchBGGGameDetails, BGGSearchResult } from '@/lib/bgg-clien
 interface AddGameModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenBatchModal?: () => void;
 }
 
-export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose }) => {
+export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose, onOpenBatchModal }) => {
   const [activeTab, setActiveTab] = useState<'bgg' | 'manual'>('bgg');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BGGSearchResult[]>([]);
@@ -173,6 +175,18 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose }) =
           >
             ✍️ 직접 정보 입력하여 추가
           </button>
+          {onOpenBatchModal && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenBatchModal();
+              }}
+              className="pb-3 text-xs font-bold border-b-2 border-transparent text-emerald-400 hover:text-emerald-300 transition-colors ml-auto flex items-center gap-1.5"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>CSV 파일 일괄 등록 ↗</span>
+            </button>
+          )}
         </div>
 
         {/* Modal Body */}

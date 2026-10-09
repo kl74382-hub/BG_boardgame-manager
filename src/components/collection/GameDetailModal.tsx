@@ -18,11 +18,14 @@ import {
   BookOpen,
   DollarSign,
   MessageSquare,
+  Truck,
+  Globe,
+  FileText,
   Calculator
 } from 'lucide-react';
 import { Game, Play, GameStatus } from '@/types';
 import { db } from '@/lib/db';
-import { getBoardLifeLinks } from '@/lib/boardlife-helper';
+import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
 
 interface GameDetailModalProps {
@@ -51,9 +54,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   useEffect(() => {
     if (game) {
       setStatus(game.status || 'owned');
-      setUserRating(game.userRating);
-      setPurchasePrice(game.purchasePrice);
-      setOrganizer(game.organizer || '');
+      setUserRating(game.userRating ?? undefined);
+      setPurchasePrice(game.purchasePrice ?? undefined);
+      setOrganizer(typeof game.organizer === 'string' ? game.organizer : (game.organizer ? '보유' : ''));
       setNotes(game.notes || '');
       setSleeves(game.sleeves || []);
       setIsEditing(false);
@@ -62,7 +65,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
   if (!isOpen || !game) return null;
 
-  const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn);
+  const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn, game.boardlifeId);
+  const bggLinks = getBggLinks(game.bggId, game.titleEn);
   const gameStatsMap = calculateGameStatsMap([game], plays);
   const stats = gameStatsMap.get(game.id);
 
@@ -96,13 +100,44 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
         
         {/* Modal Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/95 sticky top-0 z-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <h3 className="text-lg font-bold text-white leading-tight">{game.titleKr}</h3>
+            {game.edition && (
+              <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold text-xs border border-slate-700">
+                {game.edition}
+              </span>
+            )}
             {game.bggRank && (
               <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-black text-xs border border-amber-500/30">
                 BGG #{game.bggRank}
               </span>
             )}
+            
+            {/* Quick External Deep Links */}
+            <div className="flex items-center gap-1.5 ml-2">
+              <a
+                href={blLinks.infoUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="보드라이프 직행"
+                className="px-2 py-0.5 rounded-lg bg-sky-950/80 hover:bg-sky-600 text-sky-400 hover:text-white border border-sky-500/30 text-xs font-bold transition-colors flex items-center gap-1"
+              >
+                <span>🇰🇷 보드라이프</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              {game.bggId && (
+                <a
+                  href={bggLinks.detailUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="BGG 직행"
+                  className="px-2 py-0.5 rounded-lg bg-amber-950/80 hover:bg-amber-600 text-amber-400 hover:text-white border border-amber-500/30 text-xs font-bold transition-colors flex items-center gap-1"
+                >
+                  <span>🌐 BGG</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -133,7 +168,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             {/* Box Image */}
             <div className="w-full sm:w-48 aspect-square sm:aspect-[3/4] bg-slate-950 rounded-2xl overflow-hidden shadow-xl border border-slate-800 flex-shrink-0 relative">
               {game.image || game.thumbnail ? (
-                <img src={game.image || game.thumbnail} alt={game.titleKr} className="w-full h-full object-cover" />
+                <img src={(game.image || game.thumbnail) || ''} alt={game.titleKr} className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-5xl">🎲</div>
               )}
@@ -229,13 +264,64 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             )}
           </div>
 
+          {/* Funding & Shipping Status (펀딩 / 선주문 배송 추적) */}
+          {(game.edition?.includes('펀딩') || game.shippingDate || game.resalePrice || game.shippingHistory) && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/40 to-slate-900 border border-cyan-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                  <Truck className="w-4 h-4" />
+                  <span>펀딩 & 배송 / 중고 관리 정보</span>
+                </span>
+                {game.deliveryStatus && (
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-black border ${
+                    game.deliveryStatus === '도착'
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  }`}>
+                    배송 {game.deliveryStatus}
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">판본 및 구매처</span>
+                  <span className="text-xs font-black text-white">
+                    {game.edition || '일반판'} {game.purchaseStore ? `(${game.purchaseStore})` : ''}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">배송 예정일</span>
+                  <span className="text-xs font-black text-cyan-300">
+                    {game.shippingDate || '수령 완료'}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">중고 판매(방출)가</span>
+                  <span className="text-xs font-black text-amber-300">
+                    {game.resalePrice ? `${game.resalePrice.toLocaleString()}원` : '-'}
+                  </span>
+                </div>
+              </div>
+
+              {game.shippingHistory && (
+                <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 text-xs text-slate-300">
+                  <span className="text-slate-400 font-bold block text-[10px] mb-0.5">배송 지연/변경 히스토리:</span>
+                  <span className="font-mono text-cyan-400/90">{game.shippingHistory}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* BoardLife Direct Links (한국 보드게임 포털 연동 허브) */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-950/40 to-indigo-950/40 border border-sky-500/30 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
                 🇰🇷 보드라이프 (BoardLife) 데이터 & 커뮤니티 연동
               </span>
-              <span className="text-[11px] text-slate-400">원클릭 바로가기</span>
+              <span className="text-[11px] text-slate-400">
+                {game.boardlifeId ? `보드라이프 직행 #${game.boardlifeId}` : '검색 직행'}
+              </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -289,6 +375,85 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   <span>공략 & 팁 후기</span>
                 </span>
                 <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400" />
+              </a>
+            </div>
+          </div>
+
+          {/* BoardGameGeek Direct Links (BGG 글로벌 딥링크 허브) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/30 to-slate-900 border border-amber-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                🌐 BoardGameGeek (BGG) 공식 데이터 & 포럼 직행
+              </span>
+              <span className="text-[11px] text-slate-400">
+                {game.bggId ? `BGG Thing #${game.bggId}` : '검색 직행'}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <a
+                href={bggLinks.detailUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Globe className="w-4 h-4 text-amber-400" />
+                  <span>BGG 메인</span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-amber-400" />
+              </a>
+
+              <a
+                href={bggLinks.filesUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group"
+              >
+                <span className="flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-sky-400" />
+                  <span>자료실(Files)</span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-sky-400" />
+              </a>
+
+              <a
+                href={bggLinks.forumUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group"
+              >
+                <span className="flex items-center gap-1.5">
+                  <MessageSquare className="w-4 h-4 text-indigo-400" />
+                  <span>룰 포럼</span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-indigo-400" />
+              </a>
+
+              <a
+                href={bggLinks.marketUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group"
+              >
+                <span className="flex items-center gap-1.5">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                  <span>긱마켓 시세</span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-400" />
+              </a>
+
+              <a
+                href={bggLinks.videosUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group col-span-2 sm:col-span-1"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-rose-400" />
+                  <span>룰 영상</span>
+                </span>
+                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-rose-400" />
               </a>
             </div>
           </div>

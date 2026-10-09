@@ -1,13 +1,14 @@
-import { BoardLifeLinks } from '@/types';
+import { BoardLifeLinks, BGGLinks } from '@/types';
 
 // Generate BoardLife Community & Marketplace deep links for any game
-export function getBoardLifeLinks(gameTitleKr: string, gameTitleEn?: string): BoardLifeLinks {
-  // Use Korean title first, fallback to English
+export function getBoardLifeLinks(gameTitleKr: string, gameTitleEn?: string, boardlifeId?: number | null): BoardLifeLinks {
   const searchTerm = encodeURIComponent(gameTitleKr || gameTitleEn || '');
 
   return {
-    // 1. BoardLife Game Details / Community Search
-    infoUrl: `https://boardlife.co.kr/bbs/board.php?bo_table=boardgame_info&sfl=wr_subject&stx=${searchTerm}`,
+    // 1. BoardLife Game Details: Direct ID link if available, fallback to search
+    infoUrl: boardlifeId 
+      ? `https://boardlife.co.kr/game/${boardlifeId}`
+      : `https://boardlife.co.kr/bbs/board.php?bo_table=boardgame_info&sfl=wr_subject&stx=${searchTerm}`,
     
     // 2. BoardLife Korean Rules & Translation Files / Materials
     rulesUrl: `https://boardlife.co.kr/bbs/board.php?bo_table=rule&sfl=wr_subject&stx=${searchTerm}`,
@@ -17,6 +18,31 @@ export function getBoardLifeLinks(gameTitleKr: string, gameTitleEn?: string): Bo
     
     // 4. BoardLife Strategy / Review Tips (보드게임 공략 & 후기)
     tipsUrl: `https://boardlife.co.kr/bbs/board.php?bo_table=boardgame_tip&sfl=wr_subject&stx=${searchTerm}`,
+  };
+}
+
+// Generate BoardGameGeek Direct Deep Links
+export function getBggLinks(bggId?: number | null, gameTitleEn?: string): BGGLinks {
+  const encodedTitle = encodeURIComponent(gameTitleEn || '');
+  
+  if (bggId) {
+    return {
+      detailUrl: `https://boardgamegeek.com/boardgame/${bggId}`,
+      filesUrl: `https://boardgamegeek.com/boardgame/${bggId}/files`,
+      forumUrl: `https://boardgamegeek.com/boardgame/${bggId}/forums/66`,
+      marketUrl: `https://boardgamegeek.com/boardgame/${bggId}/marketplace`,
+      videosUrl: `https://boardgamegeek.com/boardgame/${bggId}/videos`,
+    };
+  }
+
+  // Fallback if bggId is not available
+  const searchUrl = `https://boardgamegeek.com/geeksearch.php?action=search&q=${encodedTitle}&objecttype=boardgame`;
+  return {
+    detailUrl: searchUrl,
+    filesUrl: searchUrl,
+    forumUrl: searchUrl,
+    marketUrl: searchUrl,
+    videosUrl: searchUrl,
   };
 }
 

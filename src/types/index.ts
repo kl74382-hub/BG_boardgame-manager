@@ -11,35 +11,48 @@ export interface SleeveSpec {
 
 export interface Game {
   id: string;                 // Internal UUID
-  bggId?: number;             // BoardGameGeek Thing ID
+  bggId?: number | null;      // BoardGameGeek Thing ID
   titleKr: string;            // Korean Title (e.g. "테라포밍 마스")
   titleEn: string;            // English Title (e.g. "Terraforming Mars")
-  yearPublished?: number;     // e.g. 2016
-  image?: string;             // Box art URL
-  thumbnail?: string;         // Small thumbnail URL
+  yearPublished?: number | null; // e.g. 2016
+  image?: string | null;      // Box art URL
+  thumbnail?: string | null;  // Small thumbnail URL
   minPlayers: number;         // e.g. 1
   maxPlayers: number;         // e.g. 5
-  bestPlayers?: string;       // e.g. "3-4" (BGG community recommended)
+  bestPlayers?: string | null; // e.g. "3-4" (BGG community recommended)
   minPlaytime: number;        // e.g. 90
   maxPlaytime: number;        // e.g. 120
-  weight?: number;            // BGG Complexity / Weight (1.00 ~ 5.00)
-  bggRating?: number;         // BGG average / geek rating (0.0 ~ 10.0)
-  bggRank?: number;           // BGG Overall Rank (e.g. 7)
+  weight?: number | null;     // BGG Complexity / Weight (1.00 ~ 5.00)
+  bggRating?: number | null;  // BGG average / geek rating (0.0 ~ 10.0)
+  bggRank?: number | null;    // BGG Overall Rank (e.g. 7)
   categories?: string[];      // e.g. ["경제", "SF", "산업/제조"]
   mechanics?: string[];       // e.g. ["핸드 관리", "타일 배치", "엔진 빌딩"]
   designers?: string[];       // e.g. ["Jacob Fryxelius"]
-  publisherKr?: string;       // e.g. "코리아보드게임즈"
-  publisherEn?: string;       // e.g. "FryxGames"
+  publisherKr?: string | null; // e.g. "코리아보드게임즈"
+  publisherEn?: string | null; // e.g. "FryxGames"
+  boardlifeId?: number | null; // BoardLife Game ID
+  edition?: '한글판' | '영문판' | '펀딩국내판' | '펀딩해외판' | string | null; // Edition
   
   // User Personal Collection Data
   status: GameStatus;         // owned, wishlist, etc.
-  userRating?: number;        // User's rating (1~10)
-  purchasePrice?: number;     // e.g. 68000 (KRW)
-  purchaseDate?: string;      // YYYY-MM-DD
-  purchaseStore?: string;     // e.g. "보드게임페스타", "다이브다이스"
+  userRating?: number | null; // User's rating (1~10)
+  purchasePrice?: number | null; // e.g. 68000 (KRW)
+  purchasePriceRaw?: string | null; // Original currency string e.g. "US$120 + SC $30"
+  resalePrice?: number | null; // Resale / sold price (KRW)
+  deliveryStatus?: '도착' | '미도착' | string | null; // Delivery status for preorders
+  shippingDate?: string | null; // Expected delivery date e.g. "2026/08"
+  shippingHistory?: string | null; // Delivery delay history e.g. "24년 12월 > 25년 2월 > 10월"
+  purchaseDate?: string | null; // YYYY-MM-DD
+  purchaseStore?: string | null; // e.g. "보드게임페스타", "텀블벅 딜라이트"
   sleeves?: SleeveSpec[];     // Sleeve information
-  organizer?: string;         // e.g. "럭키식스 원목 오거나이저"
-  notes?: string;             // Custom user notes
+  organizer?: string | boolean | null; // e.g. "럭키식스 원목 오거나이저" or boolean
+  notes?: string | null;      // Custom user notes
+  links?: {
+    boardlife?: string | null;
+    rules?: string | null;
+    usedMarket?: string | null;
+    bgg?: string | null;
+  } | null;
   isExpansion?: boolean;      // Whether this is an expansion
   baseGameId?: string;        // If expansion, base game ID
   favorite?: boolean;         // Pinned favorite
@@ -66,7 +79,7 @@ export interface Play {
   gameId: string;             // Game UUID
   gameTitleKr?: string;       // Snapshot for quick access
   gameTitleEn?: string;
-  gameImage?: string;
+  gameImage?: string | null;
   expansionIds?: string[];    // Used expansion IDs
   date: string;               // YYYY-MM-DD
   startTime?: string;         // HH:mm
@@ -133,16 +146,25 @@ export interface AppSettings {
 
 // BoardLife Link Structure
 export interface BoardLifeLinks {
-  infoUrl: string;            // 보드라이프 게임 상세/정보 검색 URL
+  infoUrl: string;            // 보드라이프 게임 상세/정보 직행 또는 검색 URL
   rulesUrl: string;           // 보드라이프 한글 룰북 & 한글화 자료실 검색 URL
   usedMarketUrl: string;      // 보드라이프 중고장터 실시간 시세/매물 검색 URL
   tipsUrl: string;            // 보드라이프 후기 및 공략 게시판 URL
 }
 
+// BGG Direct Link Structure
+export interface BGGLinks {
+  detailUrl: string;          // BGG 메인 상세 페이지 (https://boardgamegeek.com/boardgame/{id})
+  filesUrl: string;           // BGG 한글화/자료실 (Files)
+  forumUrl: string;           // BGG 룰 Q&A 및 전략 포럼 (Forum)
+  marketUrl: string;          // BGG 글로벌 긱마켓 시세 (Marketplace)
+  videosUrl: string;          // BGG 룰 설명 및 플레이 영상 (Videos)
+}
+
 // BG Stats Export JSON Schema Types
 export interface BGStatsExportGame {
   id: number;
-  uuid: string;
+  uuid?: string;
   bggId?: number;
   name: string;
   image?: string;
@@ -163,7 +185,7 @@ export interface BGStatsExportGame {
 
 export interface BGStatsExportPlayer {
   id: number;
-  uuid: string;
+  uuid?: string;
   name: string;
   isAnonymous?: number;
   bggUsername?: string;
@@ -172,14 +194,14 @@ export interface BGStatsExportPlayer {
 
 export interface BGStatsExportLocation {
   id: number;
-  uuid: string;
+  uuid?: string;
   name: string;
   modificationDate?: string;
 }
 
 export interface BGStatsExportPlay {
   id: number;
-  uuid: string;
+  uuid?: string;
   gameRefId: number;
   playDate: string;
   durationMin?: number;

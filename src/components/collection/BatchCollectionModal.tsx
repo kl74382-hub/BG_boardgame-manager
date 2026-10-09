@@ -29,6 +29,7 @@ import {
   BatchImportStats,
   STATUS_LABEL_MAP
 } from '@/lib/csv-collection';
+import { MASTER_ENRICHED_GAMES } from '@/lib/master-collection-data';
 
 interface BatchCollectionModalProps {
   isOpen: boolean;
@@ -53,6 +54,27 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [importStats, setImportStats] = useState<BatchImportStats | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+
+  // Sync Master Dataset
+  const handleSyncMasterData = async () => {
+    setIsImporting(true);
+    setImportError(null);
+    try {
+      const stats = await batchImportGames(MASTER_ENRICHED_GAMES, 'merge');
+      setImportStats(stats);
+      try {
+        confetti({
+          particleCount: 100,
+          spread: 80,
+          origin: { y: 0.6 },
+        });
+      } catch (e) {}
+    } catch (err: any) {
+      setImportError(`마스터 데이터 동기화 중 오류가 발생했습니다: ${err.message}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   // Export states
   const [exportScope, setExportScope] = useState<'all' | 'filtered'>('all');
@@ -252,6 +274,45 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
           {activeTab === 'import' && (
             <div className="space-y-6">
               
+              {/* 1-Click Master Dataset Sync Banner */}
+              {!importStats && (
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-950/60 via-slate-900 to-indigo-950/60 border border-emerald-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-black text-[10px] border border-emerald-500/30">
+                        VERIFIED MASTER
+                      </span>
+                      <h4 className="text-sm font-black text-white flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-emerald-400" />
+                        <span>정제된 421개 마스터 컬렉션 1클릭 동기화</span>
+                      </h4>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      BGG 및 보드라이프에서 <strong>추천 베스트 인원, 난이도(Weight), BGG 평점/순위, 한글판 박스아트, 직행 딥링크</strong>가 모두 보강된 최신 마스터 데이터셋(421개)을 즉시 불러옵니다.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleSyncMasterData}
+                    disabled={isImporting}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-xs shadow-lg shadow-emerald-600/30 flex items-center gap-2 shrink-0 transition-all disabled:opacity-50"
+                  >
+                    {isImporting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>동기화 진행 중...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>421개 마스터 로드</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+
               {/* Template Download & Help Banner */}
               <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="space-y-0.5">

@@ -41,14 +41,14 @@ export function calculateGameStatsMap(games: Game[], plays: Play[], currentUserI
       gameId: g.id,
       gameTitleKr: g.titleKr,
       gameTitleEn: g.titleEn,
-      thumbnail: g.thumbnail || g.image,
+      thumbnail: g.thumbnail || g.image || undefined,
       playCount: 0,
       totalDurationMinutes: 0,
       userPlays: 0,
       userWins: 0,
       userWinRate: 0,
-      purchasePrice: g.purchasePrice,
-      costPerPlay: g.purchasePrice,
+      purchasePrice: g.purchasePrice || undefined,
+      costPerPlay: g.purchasePrice || undefined,
     });
   });
 
@@ -61,7 +61,7 @@ export function calculateGameStatsMap(games: Game[], plays: Play[], currentUserI
         gameId: play.gameId,
         gameTitleKr: play.gameTitleKr || '알 수 없는 게임',
         gameTitleEn: play.gameTitleEn || 'Unknown Game',
-        thumbnail: play.gameImage,
+        thumbnail: play.gameImage || undefined,
         playCount: 0,
         totalDurationMinutes: 0,
         userPlays: 0,

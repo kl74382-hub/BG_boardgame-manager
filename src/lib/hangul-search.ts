@@ -88,7 +88,7 @@ function isSubsequence(query: string, target: string): boolean {
 
 // Main matching function: matches Korean Title, English Title, Chosung, Acronyms, and Categories
 export function matchGameSearch(
-  game: { titleKr: string; titleEn: string; categories?: string[]; mechanics?: string[]; publisherKr?: string },
+  game: { titleKr: string; titleEn: string; categories?: string[]; mechanics?: string[]; publisherKr?: string | null },
   query: string
 ): boolean {
   if (!query || !query.trim()) return true;

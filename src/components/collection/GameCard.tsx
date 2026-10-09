@@ -10,10 +10,11 @@ import {
   Coins, 
   ExternalLink,
   Heart,
-  MoreVertical
+  Truck,
+  Globe
 } from 'lucide-react';
 import { Game } from '@/types';
-import { getBoardLifeLinks } from '@/lib/boardlife-helper';
+import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
 
 interface GameCardProps {
   game: Game;
@@ -30,10 +31,11 @@ export const GameCard: React.FC<GameCardProps> = ({
   onClick,
   onToggleFavorite,
 }) => {
-  const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn);
+  const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn, game.boardlifeId);
+  const bggLinks = getBggLinks(game.bggId, game.titleEn);
 
   // Complexity / Weight label
-  const getWeightBadge = (weight?: number) => {
+  const getWeightBadge = (weight?: number | null) => {
     if (!weight) return null;
     if (weight < 2.0) return <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">입문 {weight}</span>;
     if (weight < 3.0) return <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-400 font-bold text-[10px]">초중급 {weight}</span>;
@@ -48,7 +50,8 @@ export const GameCard: React.FC<GameCardProps> = ({
       case 'wishlist': return <span className="px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-400 text-[10px] font-bold">위시리스트</span>;
       case 'played': return <span className="px-1.5 py-0.5 rounded bg-slate-700 text-slate-300 text-[10px] font-bold">플레이해봄</span>;
       case 'fortrade': return <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 text-[10px] font-bold">방출대기</span>;
-      case 'preordered': return <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 text-[10px] font-bold">예약구매</span>;
+      case 'preordered': return <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 text-[10px] font-bold">선주문</span>;
+      case 'prevowned': return <span className="px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 text-[10px] font-bold">방출완료</span>;
       default: return null;
     }
   };
@@ -63,7 +66,7 @@ export const GameCard: React.FC<GameCardProps> = ({
         <div className="relative aspect-[4/3] w-full bg-slate-900 overflow-hidden">
           {game.image || game.thumbnail ? (
             <img
-              src={game.image || game.thumbnail}
+              src={(game.image || game.thumbnail) || ''}
               alt={game.titleKr}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
@@ -72,30 +75,70 @@ export const GameCard: React.FC<GameCardProps> = ({
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent"></div>
 
-          {/* Top Overlays */}
-          <div className="absolute top-2 left-2 flex items-center gap-1.5">
+          {/* Top Left Overlays */}
+          <div className="absolute top-2 left-2 flex flex-wrap items-center gap-1.5 max-w-[70%]">
             {getStatusBadge()}
+            {game.edition && (
+              <span className="px-1.5 py-0.5 rounded bg-slate-900/80 backdrop-blur-sm text-slate-300 text-[10px] font-semibold border border-slate-700">
+                {game.edition}
+              </span>
+            )}
             {game.bggRank && (
               <span className="px-1.5 py-0.5 rounded bg-black/60 backdrop-blur-sm text-amber-300 text-[10px] font-bold border border-amber-500/30">
                 #{game.bggRank}
               </span>
             )}
+            {game.deliveryStatus === '미도착' && game.shippingDate && (
+              <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 text-[10px] font-bold border border-cyan-500/40 flex items-center gap-1">
+                <Truck className="w-3 h-3" />
+                <span>{game.shippingDate}</span>
+              </span>
+            )}
           </div>
 
-          {/* Favorite heart */}
-          {onToggleFavorite && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(game.id);
-              }}
-              className={`absolute top-2 right-2 p-1.5 rounded-full backdrop-blur-md transition-colors ${
-                game.favorite ? 'bg-rose-500/80 text-white' : 'bg-black/40 text-slate-300 hover:text-white'
-              }`}
+          {/* Top Right Actions (Favorite & Direct Deep Links) */}
+          <div className="absolute top-2 right-2 flex items-center gap-1">
+            {/* BoardLife direct button */}
+            <a
+              href={blLinks.infoUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={game.boardlifeId ? `보드라이프 #${game.boardlifeId} 직행` : '보드라이프 검색'}
+              className="p-1.5 rounded-full bg-black/60 hover:bg-sky-600/90 text-sky-400 hover:text-white backdrop-blur-md transition-colors border border-sky-500/30 shadow-sm"
             >
-              <Heart className={`w-3.5 h-3.5 ${game.favorite ? 'fill-current' : ''}`} />
-            </button>
-          )}
+              <span className="text-[10px] font-black px-0.5">BL</span>
+            </a>
+
+            {/* BGG direct button */}
+            {game.bggId && (
+              <a
+                href={bggLinks.detailUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title={`BGG #${game.bggId} 직행`}
+                className="p-1.5 rounded-full bg-black/60 hover:bg-amber-600/90 text-amber-400 hover:text-white backdrop-blur-md transition-colors border border-amber-500/30 shadow-sm"
+              >
+                <span className="text-[10px] font-black px-0.5">BGG</span>
+              </a>
+            )}
+
+            {/* Favorite heart */}
+            {onToggleFavorite && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavorite(game.id);
+                }}
+                className={`p-1.5 rounded-full backdrop-blur-md transition-colors ${
+                  game.favorite ? 'bg-rose-500/80 text-white' : 'bg-black/40 text-slate-300 hover:text-white'
+                }`}
+              >
+                <Heart className={`w-3.5 h-3.5 ${game.favorite ? 'fill-current' : ''}`} />
+              </button>
+            )}
+          </div>
 
           {/* Bottom Overlays inside cover */}
           <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between text-xs text-white">

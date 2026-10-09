@@ -161,7 +161,7 @@ export default function SettingsPage() {
           gameId: matchingGame?.id || `game-unlinked-${idx}`,
           gameTitleKr: bp.gameTitleKr || '보드게임',
           gameTitleEn: bp.gameTitleEn || 'Board Game',
-          gameImage: matchingGame?.thumbnail || matchingGame?.image,
+          gameImage: matchingGame?.thumbnail || matchingGame?.image || undefined,
           date: bp.date || new Date().toISOString().substring(0, 10),
           durationMinutes: bp.durationMinutes || 45,
           locationName: bp.locationName || '기본 장소',

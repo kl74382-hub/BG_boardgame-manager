@@ -18,6 +18,9 @@ export class BGDatabase extends Dexie {
       locations: 'id, name, createdAt',
       challenges: 'id, type, year, createdAt',
     });
+    this.version(2).stores({
+      games: 'id, bggId, boardlifeId, titleKr, titleEn, status, edition, deliveryStatus, weight, bggRating, bggRank, favorite, createdAt',
+    });
   }
 }
 

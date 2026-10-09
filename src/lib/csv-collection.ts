@@ -6,9 +6,12 @@ export const CSV_COLUMNS = [
   { key: 'titleKr', label: '한글명', required: true, example: '테라포밍 마스' },
   { key: 'titleEn', label: '영문명', required: false, example: 'Terraforming Mars' },
   { key: 'status', label: '상태', required: false, example: '보유중' },
+  { key: 'edition', label: '판본', required: false, example: '한글판' },
   { key: 'bggId', label: 'BGG번호', required: false, example: '167791' },
+  { key: 'boardlifeId', label: '보드라이프ID', required: false, example: '14832' },
   { key: 'minPlayers', label: '최소인원', required: false, example: '1' },
   { key: 'maxPlayers', label: '최대인원', required: false, example: '5' },
+  { key: 'bestPlayers', label: '추천인원', required: false, example: '3-4' },
   { key: 'minPlaytime', label: '최소시간(분)', required: false, example: '90' },
   { key: 'maxPlaytime', label: '최대시간(분)', required: false, example: '120' },
   { key: 'weight', label: '난이도(웨이트)', required: false, example: '3.25' },
@@ -16,11 +19,17 @@ export const CSV_COLUMNS = [
   { key: 'bggRank', label: 'BGG순위', required: false, example: '7' },
   { key: 'userRating', label: '내평점(1-10)', required: false, example: '9.0' },
   { key: 'purchasePrice', label: '구매가(원)', required: false, example: '68000' },
+  { key: 'resalePrice', label: '중고판매가(원)', required: false, example: '40000' },
+  { key: 'deliveryStatus', label: '배송상태', required: false, example: '도착' },
+  { key: 'shippingDate', label: '배송예정일', required: false, example: '2026/08' },
+  { key: 'shippingHistory', label: '배송지연이력', required: false, example: '24년 12월 > 25년 2월' },
   { key: 'purchaseDate', label: '구매일(YYYY-MM-DD)', required: false, example: '2023-05-15' },
-  { key: 'purchaseStore', label: '구매처', required: false, example: '보드게임페스타' },
+  { key: 'purchaseStore', label: '구매처', required: false, example: '텀블벅 딜라이트' },
   { key: 'publisherKr', label: '한국발매사', required: false, example: '코리아보드게임즈' },
   { key: 'publisherEn', label: '원발매사', required: false, example: 'FryxGames' },
   { key: 'yearPublished', label: '출시년도', required: false, example: '2016' },
+  { key: 'image', label: '대표이미지', required: false, example: 'https://...' },
+  { key: 'thumbnail', label: '썸네일', required: false, example: 'https://...' },
   { key: 'categories', label: '카테고리', required: false, example: '경제; SF; 산업/제조' },
   { key: 'mechanics', label: '메커니즘', required: false, example: '핸드 관리; 타일 배치' },
   { key: 'favorite', label: '즐겨찾기(Y/N)', required: false, example: 'Y' },
@@ -83,6 +92,9 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   'title_kr': 'titleKr',
   'title': 'titleKr',
   'name': 'titleKr',
+  '게임명(국문)': 'titleKr',
+  '게임명_한글': 'titleKr',
+  '국문명': 'titleKr',
 
   // titleEn
   '영문명': 'titleEn',
@@ -91,6 +103,13 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   'titleen': 'titleEn',
   'title_en': 'titleEn',
   'engname': 'titleEn',
+  '게임명(영문)': 'titleEn',
+  '게임명_영문': 'titleEn',
+
+  // edition
+  '판본': 'edition',
+  '버전': 'edition',
+  'edition': 'edition',
 
   // status
   '상태': 'status',
@@ -104,6 +123,19 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   'bgg_id': 'bggId',
   'bgg아이디': 'bggId',
   'bgg code': 'bggId',
+  'geek id': 'bggId',
+  'geek_id': 'bggId',
+  'geekid': 'bggId',
+  '긱id': 'bggId',
+
+  // boardlifeId
+  '보드라이프id': 'boardlifeId',
+  '보드라이프_id': 'boardlifeId',
+  '보드라이프 id': 'boardlifeId',
+  'boardlife id': 'boardlifeId',
+  'boardlife_id': 'boardlifeId',
+  'boardlifeid': 'boardlifeId',
+  '보드라이프번호': 'boardlifeId',
 
   // minPlayers
   '최소인원': 'minPlayers',
@@ -118,6 +150,15 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   'maxplayers': 'maxPlayers',
   'max_players': 'maxPlayers',
   '최대플레이어': 'maxPlayers',
+
+  // bestPlayers
+  '추천인원': 'bestPlayers',
+  '추천 인원': 'bestPlayers',
+  '적정인원': 'bestPlayers',
+  '적정 인원': 'bestPlayers',
+  '베스트인원': 'bestPlayers',
+  'bestplayers': 'bestPlayers',
+  'best_players': 'bestPlayers',
 
   // minPlaytime
   '최소시간': 'minPlaytime',
@@ -140,17 +181,20 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   '난이도': 'weight',
   '웨이트': 'weight',
   '난이도(웨이트)': 'weight',
+  '난이도_웨이트': 'weight',
   'weight': 'weight',
   'complexity': 'weight',
 
   // bggRating
   'bgg평점': 'bggRating',
+  'bgg_평점': 'bggRating',
   'bggrating': 'bggRating',
   'bgg_rating': 'bggRating',
   '긱평점': 'bggRating',
 
   // bggRank
   'bgg순위': 'bggRank',
+  'bgg_순위': 'bggRank',
   'bggrank': 'bggRank',
   'bgg_rank': 'bggRank',
   '긱순위': 'bggRank',
@@ -169,11 +213,56 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   '구매가': 'purchasePrice',
   '구매가격': 'purchasePrice',
   '구매가(원)': 'purchasePrice',
+  '구매가_원화': 'purchasePrice',
   '가격': 'purchasePrice',
   '구입가': 'purchasePrice',
   'purchaseprice': 'purchasePrice',
   'purchase_price': 'purchasePrice',
   'price': 'purchasePrice',
+
+  // resalePrice
+  '중고판매': 'resalePrice',
+  '중고판매가': 'resalePrice',
+  '중고판매가(원)': 'resalePrice',
+  '중고가': 'resalePrice',
+  '방출가': 'resalePrice',
+  'resaleprice': 'resalePrice',
+  'resale_price': 'resalePrice',
+
+  // deliveryStatus
+  '배송상태': 'deliveryStatus',
+  '배송여부': 'deliveryStatus',
+  '수령여부': 'deliveryStatus',
+  'deliverystatus': 'deliveryStatus',
+  'delivery_status': 'deliveryStatus',
+
+  // shippingDate
+  '배송예정일': 'shippingDate',
+  '수령예정일': 'shippingDate',
+  '배송일': 'shippingDate',
+  'shippingdate': 'shippingDate',
+  'shipping_date': 'shippingDate',
+
+  // shippingHistory
+  '배송지연이력': 'shippingHistory',
+  '배송이력': 'shippingHistory',
+  '지연이력': 'shippingHistory',
+  'shippinghistory': 'shippingHistory',
+  'shipping_history': 'shippingHistory',
+
+  // image
+  '보드라이프_이미지': 'image',
+  '보드라이프이미지': 'image',
+  '대표이미지': 'image',
+  '이미지': 'image',
+  'image': 'image',
+  'cover': 'image',
+
+  // thumbnail
+  'bgg_썸네일': 'thumbnail',
+  'bgg썸네일': 'thumbnail',
+  '썸네일': 'thumbnail',
+  'thumbnail': 'thumbnail',
 
   // purchaseDate
   '구매일': 'purchaseDate',
@@ -185,6 +274,7 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
 
   // purchaseStore
   '구매처': 'purchaseStore',
+  '구매처_펀딩처': 'purchaseStore',
   '구입처': 'purchaseStore',
   '판매처': 'purchaseStore',
   'purchasestore': 'purchaseStore',
@@ -235,6 +325,7 @@ const HEADER_ALIAS_MAP: Record<string, CSVColumnKey> = {
   '메모': 'notes',
   '비고': 'notes',
   '설명': 'notes',
+  '메모_비고': 'notes',
   'notes': 'notes',
   'note': 'notes',
   'memo': 'notes',
@@ -266,9 +357,12 @@ export function exportGamesToCsv(games: Game[]): string {
       escapeCsvCell(game.titleKr || ''),
       escapeCsvCell(game.titleEn || ''),
       escapeCsvCell(STATUS_LABEL_MAP[game.status] || game.status || '보유중'),
+      escapeCsvCell(game.edition || ''),
       escapeCsvCell(game.bggId || ''),
+      escapeCsvCell(game.boardlifeId || ''),
       escapeCsvCell(game.minPlayers ?? 1),
       escapeCsvCell(game.maxPlayers ?? 4),
+      escapeCsvCell(game.bestPlayers || ''),
       escapeCsvCell(game.minPlaytime ?? 30),
       escapeCsvCell(game.maxPlaytime ?? 60),
       escapeCsvCell(game.weight ? Number(game.weight).toFixed(2) : ''),
@@ -276,11 +370,17 @@ export function exportGamesToCsv(games: Game[]): string {
       escapeCsvCell(game.bggRank || ''),
       escapeCsvCell(game.userRating ? Number(game.userRating).toFixed(1) : ''),
       escapeCsvCell(game.purchasePrice || ''),
+      escapeCsvCell(game.resalePrice || ''),
+      escapeCsvCell(game.deliveryStatus || ''),
+      escapeCsvCell(game.shippingDate || ''),
+      escapeCsvCell(game.shippingHistory || ''),
       escapeCsvCell(game.purchaseDate || ''),
       escapeCsvCell(game.purchaseStore || ''),
       escapeCsvCell(game.publisherKr || ''),
       escapeCsvCell(game.publisherEn || ''),
       escapeCsvCell(game.yearPublished || ''),
+      escapeCsvCell(game.image || ''),
+      escapeCsvCell(game.thumbnail || ''),
       escapeCsvCell(Array.isArray(game.categories) ? game.categories.join('; ') : ''),
       escapeCsvCell(Array.isArray(game.mechanics) ? game.mechanics.join('; ') : ''),
       escapeCsvCell(game.favorite ? 'Y' : 'N'),
@@ -588,13 +688,27 @@ export function parseCollectionCsv(csvText: string): ParsedCsvResult {
     const favVal = (rowObj.favorite || '').toLowerCase().trim();
     const favorite = favVal === 'y' || favVal === 'yes' || favVal === 'true' || favVal === '1' || favVal === 'o';
 
+    // Additional fields
+    const boardlifeId = parseCleanNumber(rowObj.boardlifeId);
+    const edition = rowObj.edition?.trim() || undefined;
+    const bestPlayers = rowObj.bestPlayers?.trim() || undefined;
+    const resalePrice = parseCleanNumber(rowObj.resalePrice);
+    const deliveryStatus = rowObj.deliveryStatus?.trim() || undefined;
+    const shippingDate = rowObj.shippingDate?.trim() || undefined;
+    const shippingHistory = rowObj.shippingHistory?.trim() || undefined;
+    const image = rowObj.image?.trim() || undefined;
+    const thumbnail = rowObj.thumbnail?.trim() || undefined;
+
     const game: Partial<Game> = {
       titleKr: titleKr || titleEn,
       titleEn: titleEn || titleKr,
       status,
+      edition,
       bggId,
+      boardlifeId,
       minPlayers,
       maxPlayers,
+      bestPlayers,
       minPlaytime,
       maxPlaytime,
       weight,
@@ -602,11 +716,17 @@ export function parseCollectionCsv(csvText: string): ParsedCsvResult {
       bggRank,
       userRating,
       purchasePrice,
+      resalePrice,
+      deliveryStatus,
+      shippingDate,
+      shippingHistory,
       purchaseDate,
       purchaseStore,
       publisherKr: rowObj.publisherKr?.trim() || undefined,
       publisherEn: rowObj.publisherEn?.trim() || undefined,
       yearPublished: parseCleanNumber(rowObj.yearPublished),
+      image,
+      thumbnail,
       categories,
       mechanics,
       favorite,
@@ -644,12 +764,14 @@ export async function batchImportGames(
 ): Promise<BatchImportStats> {
   const existingGames = await db.games.toArray();
   
-  // Build lookup maps for existing games: by bggId and by normalized Korean/English title
+  // Build lookup maps for existing games: by bggId, boardlifeId, and normalized Korean/English title
   const existingByBggId = new Map<number, Game>();
+  const existingByBoardlifeId = new Map<number, Game>();
   const existingByTitleKr = new Map<string, Game>();
 
   existingGames.forEach(g => {
     if (g.bggId) existingByBggId.set(g.bggId, g);
+    if (g.boardlifeId) existingByBoardlifeId.set(g.boardlifeId, g);
     if (g.titleKr) existingByTitleKr.set(g.titleKr.trim().toLowerCase(), g);
     if (g.titleEn) existingByTitleKr.set(g.titleEn.trim().toLowerCase(), g);
   });
@@ -669,6 +791,7 @@ export async function batchImportGames(
     // Check match
     const matched =
       (item.bggId ? existingByBggId.get(item.bggId) : undefined) ||
+      (item.boardlifeId ? existingByBoardlifeId.get(item.boardlifeId) : undefined) ||
       (normTitleKr ? existingByTitleKr.get(normTitleKr) : undefined) ||
       (normTitleEn ? existingByTitleKr.get(normTitleEn) : undefined);
 
@@ -700,9 +823,12 @@ export async function batchImportGames(
       titleKr: item.titleKr || item.titleEn || '게임명 없음',
       titleEn: item.titleEn || item.titleKr || 'Untitled',
       status: item.status || 'owned',
+      edition: item.edition,
       bggId: item.bggId,
+      boardlifeId: item.boardlifeId,
       minPlayers: item.minPlayers || 1,
       maxPlayers: item.maxPlayers || 4,
+      bestPlayers: item.bestPlayers,
       minPlaytime: item.minPlaytime || 30,
       maxPlaytime: item.maxPlaytime || 60,
       weight: item.weight,
@@ -710,11 +836,17 @@ export async function batchImportGames(
       bggRank: item.bggRank,
       userRating: item.userRating,
       purchasePrice: item.purchasePrice,
+      resalePrice: item.resalePrice,
+      deliveryStatus: item.deliveryStatus,
+      shippingDate: item.shippingDate,
+      shippingHistory: item.shippingHistory,
       purchaseDate: item.purchaseDate,
       purchaseStore: item.purchaseStore,
       publisherKr: item.publisherKr,
       publisherEn: item.publisherEn,
       yearPublished: item.yearPublished,
+      image: item.image,
+      thumbnail: item.thumbnail,
       categories: item.categories || [],
       mechanics: item.mechanics || [],
       favorite: item.favorite || false,
@@ -728,6 +860,7 @@ export async function batchImportGames(
 
     // Update map to prevent duplicates within the same import batch
     if (newGame.bggId) existingByBggId.set(newGame.bggId, newGame);
+    if (newGame.boardlifeId) existingByBoardlifeId.set(newGame.boardlifeId, newGame);
     existingByTitleKr.set(newGame.titleKr.trim().toLowerCase(), newGame);
   }
 

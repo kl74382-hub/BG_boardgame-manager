@@ -1,4 +1,4 @@
-﻿export interface VersionInfo {
+export interface VersionInfo {
   version: string;
   codename: string;
   releaseDate: string;
@@ -6,12 +6,25 @@
   features: string[];
 }
 
-export const APP_VERSION = '1.1.0';
-export const APP_CODENAME = 'BoardGame Manager KR';
-export const APP_RELEASE_DATE = '2026-09-17';
+export const APP_VERSION = '1.2.0';
+export const APP_CODENAME = 'BoardGame Manager KR (Master Enriched)';
+export const APP_RELEASE_DATE = '2026-10-09';
 export const APP_CHANNEL: 'stable' | 'beta' | 'nightly' = 'stable';
 
 export const RELEASE_HISTORY: VersionInfo[] = [
+  {
+    version: '1.2.0',
+    codename: 'v1.2 Master Enriched & Deep Links',
+    releaseDate: '2026-10-09',
+    channel: 'stable',
+    features: [
+      'BGG & 보드라이프 421개 정제 마스터 컬렉션 1클릭 동기화 기능 탑재',
+      '게임 카드 및 상세 모달에 보드라이프 및 BGG 원클릭 직행 딥링크 허브 구축',
+      '커뮤니티 추천 베스트 인원, 난이도(Weight) 및 판본 배지 표시',
+      '펀딩/선주문 배송 상태 및 지연 이력 추적 카드 추가',
+      '보드라이프 정발판 고화질 박스아트 및 BGG 메타데이터 대폭 보강',
+    ],
+  },
   {
     version: '1.1.0',
     codename: 'v1.1 Comprehensive Suite',

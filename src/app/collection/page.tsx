@@ -30,15 +30,23 @@ import { Game, GameStatus, Play } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
 import { useAuth } from '@/contexts/AuthContext';
+import { filterGamesForUser, filterPlaysForUser, isOwnerItem } from '@/lib/user-data-filter';
 
 type SortOption = 'rank' | 'rating' | 'plays' | 'cost' | 'weight' | 'title';
 
 export default function CollectionPage() {
-  const { canViewPrivateFields, openAuthModal } = useAuth();
-  const canManage = canViewPrivateFields();
+  const { user, isAdmin, openAuthModal } = useAuth();
+  const [viewMode, setViewMode] = useState<'my' | 'showcase'>('my');
 
-  const games = useLiveQuery(() => db.games.toArray()) || [];
-  const plays = useLiveQuery(() => db.plays.toArray()) || [];
+  const allGames = useLiveQuery(() => db.games.toArray()) || [];
+  const allPlays = useLiveQuery(() => db.plays.toArray()) || [];
+
+  // Filter games and plays according to active user and viewMode
+  const games = filterGamesForUser(allGames, user, viewMode);
+  const plays = filterPlaysForUser(allPlays, user, viewMode);
+
+  // Manage permissions: admin has full manage access; normal user can manage their own collection in 'my' mode
+  const canManage = Boolean(isAdmin || (user?.role === 'user' && viewMode === 'my'));
 
   // Filter & Search states
   const [activeTab, setActiveTab] = useState<GameStatus | 'all'>('all');
@@ -169,6 +177,45 @@ export default function CollectionPage() {
 
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
         
+        {/* Normal user view mode toggle */}
+        {user?.role === 'user' && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-sm">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode('my')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  viewMode === 'my'
+                    ? 'bg-indigo-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>내 컬렉션</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${viewMode === 'my' ? 'bg-white/25 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  {allGames.filter(g => g.userId === user.id).length}
+                </span>
+              </button>
+              <button
+                onClick={() => setViewMode('showcase')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  viewMode === 'showcase'
+                    ? 'bg-amber-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>👑 관리자(Nana) 컬렉션 둘러보기</span>
+                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${viewMode === 'showcase' ? 'bg-white/25 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                  {allGames.filter(isOwnerItem).length}
+                </span>
+              </button>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {viewMode === 'my'
+                ? '내가 직접 등록한 보드게임 컬렉션입니다.'
+                : '관리자(Nana)의 마스터 컬렉션을 검색하고 둘러보는 중입니다.'}
+            </p>
+          </div>
+        )}
+
         {/* Status Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
@@ -337,8 +384,16 @@ export default function CollectionPage() {
           </div>
         ) : (
           <div className="p-12 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-3">
-            <p className="text-base font-bold text-slate-300">검색 조건에 맞는 게임이 없습니다.</p>
-            <p className="text-xs text-slate-500">필터를 초기화하거나 새 게임을 추가해 보세요.</p>
+            <p className="text-base font-bold text-slate-300">
+              {user?.role === 'user' && viewMode === 'my' && allGames.filter(g => g.userId === user.id).length === 0
+                ? '아직 등록된 내 보드게임이 없습니다.'
+                : '검색 조건에 맞는 게임이 없습니다.'}
+            </p>
+            <p className="text-xs text-slate-500">
+              {user?.role === 'user' && viewMode === 'my' && allGames.filter(g => g.userId === user.id).length === 0
+                ? '새 게임을 직접 추가하거나, 상단 [관리자 컬렉션 둘러보기]로 등록된 마스터 컬렉션을 둘러보세요.'
+                : '필터를 초기화하거나 새 게임을 추가해 보세요.'}
+            </p>
             <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
               <button
                 onClick={() => setIsAddGameOpen(true)}

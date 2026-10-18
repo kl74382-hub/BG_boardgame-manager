@@ -25,12 +25,18 @@ import { LogPlayModal } from '@/components/plays/LogPlayModal';
 import { GameDetailModal } from '@/components/collection/GameDetailModal';
 import { Game, Play } from '@/types';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
+import { useAuth } from '@/contexts/AuthContext';
+import { filterGamesForUser, filterPlaysForUser } from '@/lib/user-data-filter';
 
 export default function DashboardPage() {
-  const games = useLiveQuery(() => db.games.toArray()) || [];
-  const plays = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray()) || [];
+  const { user } = useAuth();
+  const allGames = useLiveQuery(() => db.games.toArray()) || [];
+  const allPlays = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray()) || [];
   const players = useLiveQuery(() => db.players.toArray()) || [];
   const challenges = useLiveQuery(() => db.challenges.toArray()) || [];
+
+  const games = filterGamesForUser(allGames, user);
+  const plays = filterPlaysForUser(allPlays, user);
 
   // Modal states
   const [isLogPlayOpen, setIsLogPlayOpen] = useState(false);

@@ -24,6 +24,60 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const LOCAL_STORAGE_USER_KEY = 'bg_stats_user_session';
+const LOCAL_STORAGE_USERS_DB_KEY = 'bg_stats_registered_accounts';
+
+export interface RegisteredAccount {
+  id: string;
+  email: string;
+  password: string;
+  nickname: string;
+  role: 'admin' | 'user';
+  avatarUrl?: string;
+  bggUsername?: string;
+}
+
+export const DEFAULT_ACCOUNTS: RegisteredAccount[] = [
+  {
+    id: 'admin-nana',
+    email: 'admin@bgstats.kr',
+    password: 'admin1234',
+    nickname: 'Nana (소유자/관리자)',
+    role: 'admin',
+    avatarUrl: '👑',
+    bggUsername: 'Bitnara',
+  },
+  {
+    id: 'user-demo-1',
+    email: 'user@bgstats.kr',
+    password: 'user1234',
+    nickname: '보드게임친구',
+    role: 'user',
+    avatarUrl: '🎲',
+  },
+];
+
+export function getRegisteredAccounts(): RegisteredAccount[] {
+  if (typeof window === 'undefined') return DEFAULT_ACCOUNTS;
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_USERS_DB_KEY);
+    if (!raw) {
+      localStorage.setItem(LOCAL_STORAGE_USERS_DB_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
+      return DEFAULT_ACCOUNTS;
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_ACCOUNTS;
+  } catch {
+    return DEFAULT_ACCOUNTS;
+  }
+}
+
+export function saveRegisteredAccount(newAccount: RegisteredAccount) {
+  if (typeof window === 'undefined') return;
+  const accounts = getRegisteredAccounts();
+  const filtered = accounts.filter(a => a.email.toLowerCase() !== newAccount.email.toLowerCase());
+  filtered.push(newAccount);
+  localStorage.setItem(LOCAL_STORAGE_USERS_DB_KEY, JSON.stringify(filtered));
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -33,6 +87,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize session
   useEffect(() => {
     const initAuth = async () => {
+      // Ensure default accounts exist in localStorage
+      if (typeof window !== 'undefined') {
+        getRegisteredAccounts();
+      }
+
       // 1. If Supabase is configured, use Supabase session
       if (isSupabaseConfigured) {
         try {
@@ -121,25 +180,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginWithEmail = async (email: string, password: string): Promise<{ error?: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPw = password.trim();
+
+    if (!cleanEmail || !cleanPw) {
+      return { error: '이메일과 비밀번호를 모두 입력해주세요.' };
+    }
+
     if (!isSupabaseConfigured) {
-      // Demo login
-      const demoUser: UserProfile = {
-        id: `user-${Date.now()}`,
-        email,
-        nickname: email.split('@')[0],
-        role: email.includes('admin') ? 'admin' : 'user',
+      const accounts = getRegisteredAccounts();
+      const account = accounts.find(a => a.email.toLowerCase() === cleanEmail);
+
+      // Special alias: allow nana@bgstats.kr as admin
+      if (!account && cleanEmail === 'nana@bgstats.kr') {
+        const adminAcc = DEFAULT_ACCOUNTS[0];
+        if (cleanPw !== adminAcc.password) {
+          return { error: '관리자 비밀번호가 일치하지 않습니다. (관리자 초기 PW: admin1234)' };
+        }
+        const adminProfile: UserProfile = {
+          id: adminAcc.id,
+          email: adminAcc.email,
+          nickname: adminAcc.nickname,
+          role: adminAcc.role,
+          avatarUrl: adminAcc.avatarUrl,
+          bggUsername: adminAcc.bggUsername,
+        };
+        setUser(adminProfile);
+        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(adminProfile));
+        setIsAuthModalOpen(false);
+        return {};
+      }
+
+      if (!account) {
+        return { error: '등록되지 않은 계정입니다. 회원가입 탭에서 먼저 가입해주세요.' };
+      }
+
+      if (account.password !== cleanPw) {
+        return {
+          error: account.role === 'admin'
+            ? '관리자 비밀번호가 일치하지 않습니다. (초기 PW: admin1234)'
+            : '비밀번호가 일치하지 않습니다. (체험 계정 PW: user1234)'
+        };
+      }
+
+      const profile: UserProfile = {
+        id: account.id,
+        email: account.email,
+        nickname: account.nickname,
+        role: account.role,
+        avatarUrl: account.avatarUrl,
+        bggUsername: account.bggUsername,
       };
-      setUser(demoUser);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(demoUser));
+      setUser(profile);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
       setIsAuthModalOpen(false);
       return {};
     }
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPw });
       if (error) return { error: error.message };
       if (data.user) {
-        await fetchUserProfile(data.user.id, data.user.email || email);
+        await fetchUserProfile(data.user.id, data.user.email || cleanEmail);
         setIsAuthModalOpen(false);
       }
       return {};
@@ -149,33 +251,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUpWithEmail = async (email: string, password: string, nickname: string): Promise<{ error?: string }> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPw = password.trim();
+    const cleanNick = nickname.trim();
+
+    if (!cleanEmail || !cleanPw || !cleanNick) {
+      return { error: '닉네임, 이메일, 비밀번호를 모두 입력해주세요.' };
+    }
+
     if (!isSupabaseConfigured) {
-      const demoUser: UserProfile = {
+      const accounts = getRegisteredAccounts();
+      if (accounts.some(a => a.email.toLowerCase() === cleanEmail)) {
+        return { error: '이미 등록된 이메일 주소입니다. 다른 이메일로 가입해주세요.' };
+      }
+
+      const newAccount: RegisteredAccount = {
         id: `user-${Date.now()}`,
-        email,
-        nickname: nickname || email.split('@')[0],
+        email: cleanEmail,
+        password: cleanPw,
+        nickname: cleanNick,
         role: 'user',
+        avatarUrl: '🎲',
       };
-      setUser(demoUser);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(demoUser));
+      saveRegisteredAccount(newAccount);
+
+      const profile: UserProfile = {
+        id: newAccount.id,
+        email: newAccount.email,
+        nickname: newAccount.nickname,
+        role: 'user',
+        avatarUrl: '🎲',
+      };
+      setUser(profile);
+      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
       setIsAuthModalOpen(false);
       return {};
     }
 
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: cleanEmail,
+        password: cleanPw,
         options: {
           data: {
-            nickname,
+            nickname: cleanNick,
             role: 'user',
           },
         },
       });
       if (error) return { error: error.message };
       if (data.user) {
-        await fetchUserProfile(data.user.id, data.user.email || email);
+        await fetchUserProfile(data.user.id, data.user.email || cleanEmail);
         setIsAuthModalOpen(false);
       }
       return {};
@@ -186,7 +312,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithOAuth = async (provider: 'google' | 'kakao') => {
     if (!isSupabaseConfigured) {
-      quickLoginDemo('user');
+      // Demo OAuth fallback -> user
+      await loginWithEmail('user@bgstats.kr', 'user1234');
       return;
     }
     await supabase.auth.signInWithOAuth({
@@ -201,37 +328,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
-    // Switch to guest mode
-    quickLoginDemo('guest');
+    setUser(null);
+    localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+    setIsAuthModalOpen(false);
   };
 
   const quickLoginDemo = (role: 'admin' | 'user' | 'guest') => {
     if (role === 'guest') {
-      setUser(null);
-      localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
-    } else if (role === 'admin') {
-      const admin: UserProfile = {
-        id: 'admin-nana',
-        email: 'admin@bgstats.kr',
-        nickname: 'Nana (소유자/관리자)',
-        role: 'admin',
-        avatarUrl: '👑',
-        bggUsername: 'Bitnara',
-      };
-      setUser(admin);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(admin));
+      logout();
     } else {
-      const normalUser: UserProfile = {
-        id: 'demo-user-1',
-        email: 'boardgamer@example.com',
-        nickname: '보드게임친구',
-        role: 'user',
-        avatarUrl: '🎲',
-      };
-      setUser(normalUser);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(normalUser));
+      // Open modal to let user authenticate with password
+      setIsAuthModalOpen(true);
     }
-    setIsAuthModalOpen(false);
   };
 
   /**

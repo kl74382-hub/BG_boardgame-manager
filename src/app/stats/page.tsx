@@ -22,12 +22,18 @@ import { PlayerHeadToHead } from '@/components/stats/PlayerHeadToHead';
 import { CostPerPlayLeaderboard } from '@/components/stats/CostPerPlayLeaderboard';
 import { FirstPlayerAdvantageChart } from '@/components/stats/FirstPlayerAdvantageChart';
 import { MechanismRadarChart } from '@/components/stats/MechanismRadarChart';
+import { useAuth } from '@/contexts/AuthContext';
+import { filterGamesForUser, filterPlaysForUser } from '@/lib/user-data-filter';
 
 export default function StatsPage() {
-  const games = useLiveQuery(() => db.games.toArray()) || [];
-  const plays = useLiveQuery(() => db.plays.toArray()) || [];
+  const { user } = useAuth();
+  const allGames = useLiveQuery(() => db.games.toArray()) || [];
+  const allPlays = useLiveQuery(() => db.plays.toArray()) || [];
   const players = useLiveQuery(() => db.players.toArray()) || [];
   const challenges = useLiveQuery(() => db.challenges.toArray()) || [];
+
+  const games = filterGamesForUser(allGames, user);
+  const plays = filterPlaysForUser(allPlays, user);
 
   const mainChallenge = challenges[0];
 

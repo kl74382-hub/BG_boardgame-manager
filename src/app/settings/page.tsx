@@ -135,6 +135,7 @@ export default function SettingsPage() {
         bggRank: item.bggRank,
         status: item.status || 'owned',
         userRating: item.userRating,
+        userId: user?.id || (isAdmin ? 'admin-nana' : undefined),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       }));
@@ -206,6 +207,7 @@ export default function SettingsPage() {
             startPlayer: ps.startPlayer,
             newPlayer: ps.newPlayer,
           })),
+          userId: user?.id || (isAdmin ? 'admin-nana' : undefined),
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };

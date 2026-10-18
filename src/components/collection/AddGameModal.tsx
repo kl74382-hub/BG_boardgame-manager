@@ -15,6 +15,7 @@ import {
 import { db, getStoredSettings } from '@/lib/db';
 import { Game, GameStatus } from '@/types';
 import { searchBGG, fetchBGGGameDetails, BGGSearchResult } from '@/lib/bgg-client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AddGameModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ interface AddGameModalProps {
 }
 
 export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose, onOpenBatchModal }) => {
+  const { user, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<'bgg' | 'manual'>('bgg');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<BGGSearchResult[]>([]);
@@ -92,6 +94,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose, onO
         designers: details?.designers || [],
         publisherEn: details?.publishers?.[0],
         status: 'owned',
+        userId: user?.id || (isAdmin ? 'admin-nana' : undefined),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -122,6 +125,7 @@ export const AddGameModal: React.FC<AddGameModalProps> = ({ isOpen, onClose, onO
       publisherKr: publisherKr.trim() || undefined,
       purchasePrice,
       status,
+      userId: user?.id || (isAdmin ? 'admin-nana' : undefined),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

@@ -23,6 +23,7 @@ import {
 import { db } from '@/lib/db';
 import { Game, Player, Play as PlayModel, PlayerScore } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LogPlayModalProps {
   isOpen: boolean;
@@ -37,6 +38,7 @@ export const LogPlayModal: React.FC<LogPlayModalProps> = ({
   initialGameId,
   editPlay,
 }) => {
+  const { user, isAdmin } = useAuth();
   // Dexie live queries
   const games = useLiveQuery(() => db.games.toArray()) || [];
   const players = useLiveQuery(() => db.players.toArray()) || [];
@@ -233,6 +235,7 @@ export const LogPlayModal: React.FC<LogPlayModalProps> = ({
       notes: notes.trim() || undefined,
       rating,
       syncedToBgg,
+      userId: user?.id || (isAdmin ? 'admin-nana' : undefined),
       createdAt: editPlay?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

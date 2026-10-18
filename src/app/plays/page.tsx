@@ -20,12 +20,18 @@ import { PlayCard } from '@/components/plays/PlayCard';
 import { LogPlayModal } from '@/components/plays/LogPlayModal';
 import { Play, Game } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
+import { useAuth } from '@/contexts/AuthContext';
+import { filterGamesForUser, filterPlaysForUser } from '@/lib/user-data-filter';
 
 export default function PlaysPage() {
-  const games = useLiveQuery(() => db.games.toArray()) || [];
-  const plays = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray()) || [];
+  const { user } = useAuth();
+  const allGames = useLiveQuery(() => db.games.toArray()) || [];
+  const allPlays = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray()) || [];
   const players = useLiveQuery(() => db.players.toArray()) || [];
   const locations = useLiveQuery(() => db.locations.toArray()) || [];
+
+  const games = filterGamesForUser(allGames, user);
+  const plays = filterPlaysForUser(allPlays, user);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');

@@ -45,7 +45,7 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
   allGames = [],
   filteredGames = [],
 }) => {
-  const { canViewPrivateFields } = useAuth();
+  const { canViewPrivateFields, user, isAdmin } = useAuth();
   const showPrice = canViewPrivateFields();
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
 
@@ -161,7 +161,11 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
     setImportError(null);
 
     try {
-      const stats = await batchImportGames(parsedResult.games, duplicateMode);
+      const gamesToImport = parsedResult.games.map(g => ({
+        ...g,
+        userId: user?.id || (isAdmin ? 'admin-nana' : undefined),
+      }));
+      const stats = await batchImportGames(gamesToImport, duplicateMode);
       setImportStats(stats);
 
       // Trigger celebrate confetti

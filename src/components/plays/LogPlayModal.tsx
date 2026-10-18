@@ -321,7 +321,15 @@ export const LogPlayModal: React.FC<LogPlayModalProps> = ({
                     }`}
                   >
                     {game.thumbnail ? (
-                      <img src={game.thumbnail} alt="" className="w-7 h-7 object-cover rounded shadow-sm flex-shrink-0" />
+                      <img
+                        src={game.thumbnail}
+                        alt=""
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                        className="w-7 h-7 object-cover rounded shadow-sm flex-shrink-0"
+                      />
                     ) : (
                       <div className="w-7 h-7 bg-slate-700 rounded flex items-center justify-center text-xs flex-shrink-0">🎲</div>
                     )}

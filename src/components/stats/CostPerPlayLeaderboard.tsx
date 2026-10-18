@@ -1,9 +1,10 @@
 'use client';
 
 import React from 'react';
-import { Coins, TrendingDown, AlertCircle, Sparkles } from 'lucide-react';
+import { Coins, TrendingDown, AlertCircle, Sparkles, Lock } from 'lucide-react';
 import { Game, Play } from '@/types';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CostPerPlayLeaderboardProps {
   games: Game[];
@@ -11,7 +12,33 @@ interface CostPerPlayLeaderboardProps {
 }
 
 export const CostPerPlayLeaderboard: React.FC<CostPerPlayLeaderboardProps> = ({ games, plays }) => {
+  const { canViewPrivateFields, openAuthModal } = useAuth();
+  const showPrice = canViewPrivateFields();
+
   const gameStats = calculateGameStatsMap(games, plays);
+
+  // If user cannot view purchase price, show private lock card
+  if (!showPrice) {
+    return (
+      <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800 text-center space-y-3">
+        <div className="w-10 h-10 rounded-full bg-indigo-950/60 border border-indigo-500/30 flex items-center justify-center text-indigo-400 mx-auto">
+          <Lock className="w-5 h-5" />
+        </div>
+        <div>
+          <h4 className="font-bold text-sm text-white">가성비 & 구매가 심층 분석 (소유자 전용 비공개)</h4>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+            소장 보드게임의 실제 구매 가격 및 플레이당 비용(가성비)은 계정 소유자에게만 비공개로 제공됩니다.
+          </p>
+        </div>
+        <button
+          onClick={openAuthModal}
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-indigo-300 border border-slate-700 transition-colors"
+        >
+          <span>소유자 / 관리자 로그인하여 확인하기</span>
+        </button>
+      </div>
+    );
+  }
 
   // Filter games that have purchase price recorded
   const gamesWithPrice = Array.from(gameStats.values())

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Play, Player, Game } from '@/types';
 import { getBoardLifeLinks } from '@/lib/boardlife-helper';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PlayCardProps {
   play: Play;
@@ -34,7 +35,10 @@ export const PlayCard: React.FC<PlayCardProps> = ({
   onDelete,
   onClone,
 }) => {
+  const { canViewPrivateFields } = useAuth();
+  const canManage = canViewPrivateFields(play.userId);
   const [showMenu, setShowMenu] = React.useState(false);
+  const [imgError, setImgError] = React.useState(false);
   const blLinks = getBoardLifeLinks(play.gameTitleKr || '', play.gameTitleEn);
 
   return (
@@ -44,10 +48,12 @@ export const PlayCard: React.FC<PlayCardProps> = ({
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-3">
           {/* Game Thumbnail */}
-          {play.gameImage ? (
+          {play.gameImage && !imgError ? (
             <img
               src={play.gameImage}
               alt=""
+              referrerPolicy="no-referrer"
+              onError={() => setImgError(true)}
               className="w-12 h-12 object-cover rounded-xl shadow-md border border-slate-700/80 flex-shrink-0"
             />
           ) : (
@@ -85,7 +91,7 @@ export const PlayCard: React.FC<PlayCardProps> = ({
               className="absolute right-0 top-8 w-40 bg-slate-900 border border-slate-700 rounded-xl shadow-xl py-1 z-20 text-xs"
               onMouseLeave={() => setShowMenu(false)}
             >
-              {onEdit && (
+              {canManage && onEdit && (
                 <button
                   onClick={() => { setShowMenu(false); onEdit(play); }}
                   className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2"
@@ -94,7 +100,7 @@ export const PlayCard: React.FC<PlayCardProps> = ({
                   <span>기록 수정</span>
                 </button>
               )}
-              {onClone && (
+              {canManage && onClone && (
                 <button
                   onClick={() => { setShowMenu(false); onClone(play); }}
                   className="w-full px-3 py-2 text-left text-slate-300 hover:text-white hover:bg-slate-800 flex items-center gap-2"
@@ -112,7 +118,7 @@ export const PlayCard: React.FC<PlayCardProps> = ({
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>보드라이프 정보</span>
               </a>
-              {onDelete && (
+              {canManage && onDelete && (
                 <button
                   onClick={() => { setShowMenu(false); onDelete(play.id); }}
                   className="w-full px-3 py-2 text-left text-rose-400 hover:bg-slate-800 flex items-center gap-2"

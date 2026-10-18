@@ -29,10 +29,14 @@ import { LogPlayModal } from '@/components/plays/LogPlayModal';
 import { Game, GameStatus, Play } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
+import { useAuth } from '@/contexts/AuthContext';
 
 type SortOption = 'rank' | 'rating' | 'plays' | 'cost' | 'weight' | 'title';
 
 export default function CollectionPage() {
+  const { canViewPrivateFields, openAuthModal } = useAuth();
+  const canManage = canViewPrivateFields();
+
   const games = useLiveQuery(() => db.games.toArray()) || [];
   const plays = useLiveQuery(() => db.plays.toArray()) || [];
 
@@ -55,6 +59,10 @@ export default function CollectionPage() {
   const gameStats = calculateGameStatsMap(games, plays);
 
   const handleToggleFavorite = async (gameId: string) => {
+    if (!canManage) {
+      openAuthModal();
+      return;
+    }
     const target = games.find(g => g.id === gameId);
     if (target) {
       await db.games.update(gameId, { favorite: !target.favorite });
@@ -129,23 +137,33 @@ export default function CollectionPage() {
         onSearchChange={setSearchQuery}
         searchPlaceholder="게임명, 초성(ㅌㅍㅁ, ㅅㄷ), 발매사 검색..."
         rightAction={
-          <div className="flex items-center gap-2">
+          canManage ? (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsBatchModalOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
+                title="CSV 파일로 컬렉션 일괄 등록 및 내보내기"
+              >
+                <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                <span className="hidden sm:inline">CSV 일괄 관리</span>
+              </button>
+              <button
+                onClick={() => setIsAddGameOpen(true)}
+                className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">새 게임 추가</span>
+              </button>
+            </div>
+          ) : (
             <button
-              onClick={() => setIsBatchModalOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
-              title="CSV 파일로 컬렉션 일괄 등록 및 내보내기"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">CSV 일괄 관리</span>
-            </button>
-            <button
-              onClick={() => setIsAddGameOpen(true)}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
+              onClick={openAuthModal}
+              className="px-3.5 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 font-bold text-xs flex items-center gap-1.5 shadow transition-colors"
             >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">새 게임 추가</span>
+              <span>로그인하여 내 게임 추가</span>
             </button>
-          </div>
+          )
         }
       />
 
@@ -263,14 +281,14 @@ export default function CollectionPage() {
                 <span>정렬 기준</span>
               </label>
               <select
-                value={sortBy}
+                value={sortBy === 'cost' && !canManage ? 'rank' : sortBy}
                 onChange={(e) => setSortBy(e.target.value as SortOption)}
                 className="w-full bg-slate-800 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-white"
               >
                 <option value="rank">BGG 랭킹순</option>
                 <option value="rating">평점 높은순</option>
                 <option value="plays">플레이 횟수순</option>
-                <option value="cost">가성비 (회당비용)순</option>
+                {canManage && <option value="cost">가성비 (회당비용)순</option>}
                 <option value="weight">난이도 높은순</option>
                 <option value="title">게임명 가나다순</option>
               </select>

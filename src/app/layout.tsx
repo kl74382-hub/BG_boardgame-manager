@@ -6,6 +6,9 @@ import { Navbar } from '@/components/layout/Navbar';
 import { LogPlayModal } from '@/components/plays/LogPlayModal';
 import { ensureSeedData } from '@/lib/db';
 
+import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthModal } from '@/components/auth/AuthModal';
+
 export default function RootLayout({
   children,
 }: {
@@ -26,25 +29,32 @@ export default function RootLayout({
 
   return (
     <html lang="ko" className="dark">
+      <head>
+        <meta name="referrer" content="no-referrer" />
+      </head>
       <body className="bg-slate-950 text-slate-100 min-h-screen flex flex-col md:flex-row antialiased selection:bg-indigo-500 selection:text-white">
-        
-        {/* Navigation Sidebar & Mobile Bottom Bar */}
-        <Navbar onOpenLogPlay={() => handleOpenLogPlay()} />
+        <AuthProvider>
+          {/* Navigation Sidebar & Mobile Bottom Bar */}
+          <Navbar onOpenLogPlay={() => handleOpenLogPlay()} />
 
-        {/* Main Content Area */}
-        <main className="flex-1 md:ml-64 pb-20 md:pb-8 min-h-screen flex flex-col">
-          {children}
-        </main>
+          {/* Main Content Area */}
+          <main className="flex-1 md:ml-64 pb-20 md:pb-8 min-h-screen flex flex-col">
+            {children}
+          </main>
 
-        {/* Global Log Play Modal */}
-        <LogPlayModal
-          isOpen={isLogPlayOpen}
-          onClose={() => {
-            setIsLogPlayOpen(false);
-            setTargetGameId(undefined);
-          }}
-          initialGameId={targetGameId}
-        />
+          {/* Global Log Play Modal */}
+          <LogPlayModal
+            isOpen={isLogPlayOpen}
+            onClose={() => {
+              setIsLogPlayOpen(false);
+              setTargetGameId(undefined);
+            }}
+            initialGameId={targetGameId}
+          />
+
+          {/* Global Auth Modal */}
+          <AuthModal />
+        </AuthProvider>
       </body>
     </html>
   );

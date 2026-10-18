@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Plus, Search, Sun, Moon, Sparkles } from 'lucide-react';
+import { Plus, Search, Sun, Moon, Sparkles, Crown, Lock } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface HeaderProps {
   title?: string;
@@ -22,6 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   searchPlaceholder = '게임명, 초성(ㅌㅍㅁ, ㅅㄷ), 태그 검색...',
   rightAction,
 }) => {
+  const { user, openAuthModal } = useAuth();
   const [theme, setTheme] = React.useState<'dark' | 'light'>('dark');
 
   const toggleTheme = () => {
@@ -70,7 +72,37 @@ export const Header: React.FC<HeaderProps> = ({
           {theme === 'dark' ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-indigo-400" />}
         </button>
 
-        {/* Quick Log Play */}
+        {/* User Account / Login Button */}
+        {user ? (
+          <button
+            onClick={openAuthModal}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs font-semibold transition-all group"
+            title="계정 및 권한 관리"
+          >
+            <span className="text-sm">{user.avatarUrl || '🎲'}</span>
+            <span className="text-slate-200 hidden sm:inline max-w-[100px] truncate">{user.nickname}</span>
+            {user.role === 'admin' ? (
+              <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold text-[10px] border border-amber-500/30 flex items-center gap-0.5">
+                <Crown className="w-3 h-3" />
+                <span>관리자</span>
+              </span>
+            ) : (
+              <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold text-[10px] border border-indigo-500/30">
+                회원
+              </span>
+            )}
+          </button>
+        ) : (
+          <button
+            onClick={openAuthModal}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 hover:text-white transition-all shadow-sm"
+          >
+            <Lock className="w-3.5 h-3.5 text-indigo-400" />
+            <span>로그인</span>
+          </button>
+        )}
+
+        {/* Quick Log Play (Admin or User only) */}
         {onOpenLogPlay && (
           <button
             onClick={onOpenLogPlay}

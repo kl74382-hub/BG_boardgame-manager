@@ -94,7 +94,15 @@ export const ChallengeTracker: React.FC<ChallengeTrackerProps> = ({
           >
             <div className="flex items-center gap-2.5 mb-2">
               {g.thumbnail ? (
-                <img src={g.thumbnail} alt="" className="w-8 h-8 rounded-lg object-cover flex-shrink-0" />
+                <img
+                  src={g.thumbnail}
+                  alt=""
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
+                  className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+                />
               ) : (
                 <div className="w-8 h-8 rounded-lg bg-slate-700 flex items-center justify-center text-xs flex-shrink-0">🎲</div>
               )}

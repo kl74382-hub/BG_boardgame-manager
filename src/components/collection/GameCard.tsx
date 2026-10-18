@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Game } from '@/types';
 import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GameCardProps {
   game: Game;
@@ -31,6 +32,8 @@ export const GameCard: React.FC<GameCardProps> = ({
   onClick,
   onToggleFavorite,
 }) => {
+  const { canViewPrivateFields } = useAuth();
+  const showPrice = canViewPrivateFields(game.userId);
   const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn, game.boardlifeId);
   const bggLinks = getBggLinks(game.bggId, game.titleEn);
 
@@ -56,6 +59,9 @@ export const GameCard: React.FC<GameCardProps> = ({
     }
   };
 
+  const [imgError, setImgError] = React.useState(false);
+  const imgSrc = !imgError ? (game.image || game.thumbnail) : null;
+
   return (
     <div 
       onClick={onClick}
@@ -64,14 +70,20 @@ export const GameCard: React.FC<GameCardProps> = ({
       <div>
         {/* Card Cover & Badges */}
         <div className="relative aspect-[4/3] w-full bg-slate-900 overflow-hidden">
-          {game.image || game.thumbnail ? (
+          {imgSrc ? (
             <img
-              src={(game.image || game.thumbnail) || ''}
+              src={imgSrc}
               alt={game.titleKr}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              onError={() => setImgError(true)}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-4xl">🎲</div>
+            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-indigo-950/40 to-slate-900 text-center p-4">
+              <span className="text-4xl mb-1">🎲</span>
+              <span className="text-[11px] font-bold text-slate-400 line-clamp-1">{game.titleKr}</span>
+            </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent"></div>
 
@@ -196,10 +208,14 @@ export const GameCard: React.FC<GameCardProps> = ({
         <span className="text-slate-300 font-semibold">
           플레이 <strong className="text-indigo-400">{playCount}</strong>회
         </span>
-        {costPerPlay !== undefined && (
+        {showPrice && costPerPlay !== undefined ? (
           <span className="text-amber-400/90 font-medium flex items-center gap-1">
             <Coins className="w-3 h-3" />
             {costPerPlay.toLocaleString()}원/회
+          </span>
+        ) : (
+          <span className="text-slate-500 text-[10px]">
+            {game.publisherKr || (game.categories && game.categories[0]) || ''}
           </span>
         )}
       </div>

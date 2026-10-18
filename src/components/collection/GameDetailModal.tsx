@@ -21,12 +21,16 @@ import {
   Truck,
   Globe,
   FileText,
-  Calculator
+  Calculator,
+  RefreshCw,
+  Loader2,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Game, Play, GameStatus } from '@/types';
 import { db } from '@/lib/db';
 import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface GameDetailModalProps {
   game: Game | null;
@@ -43,6 +47,8 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   onClose,
   onOpenLogPlay,
 }) => {
+  const { canViewPrivateFields } = useAuth();
+  const showPrice = game ? canViewPrivateFields(game.userId) : false;
   const [isEditing, setIsEditing] = useState(false);
   const [status, setStatus] = useState<GameStatus>('owned');
   const [userRating, setUserRating] = useState<number | undefined>(undefined);
@@ -50,6 +56,10 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [organizer, setOrganizer] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [sleeves, setSleeves] = useState(game?.sleeves || []);
+  const [bggIdInput, setBggIdInput] = useState<number | undefined>(undefined);
+  const [customImageUrl, setCustomImageUrl] = useState<string>('');
+  const [imgError, setImgError] = useState(false);
+  const [isRefreshingBgg, setIsRefreshingBgg] = useState(false);
 
   useEffect(() => {
     if (game) {
@@ -59,6 +69,9 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       setOrganizer(typeof game.organizer === 'string' ? game.organizer : (game.organizer ? '보유' : ''));
       setNotes(game.notes || '');
       setSleeves(game.sleeves || []);
+      setBggIdInput(game.bggId ?? undefined);
+      setCustomImageUrl(game.image || game.thumbnail || '');
+      setImgError(false);
       setIsEditing(false);
     }
   }, [game, isOpen]);
@@ -70,6 +83,40 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const gameStatsMap = calculateGameStatsMap([game], plays);
   const stats = gameStatsMap.get(game.id);
 
+  const handleRefreshBggImage = async () => {
+    const targetBggId = bggIdInput || game.bggId;
+    if (!targetBggId) {
+      alert('BGG ID를 먼저 입력해주세요.');
+      return;
+    }
+    setIsRefreshingBgg(true);
+    try {
+      const res = await fetch(`/api/bgg/thing?id=${targetBggId}`);
+      const data = await res.json();
+      if (data.game?.image || data.game?.thumbnail) {
+        const newImg = data.game.image || data.game.thumbnail;
+        const newThumb = data.game.thumbnail || data.game.image;
+        setCustomImageUrl(newImg);
+        setImgError(false);
+        await db.games.update(game.id, {
+          bggId: targetBggId,
+          image: newImg,
+          thumbnail: newThumb,
+          bggRating: data.game.bggRating || game.bggRating,
+          bggRank: data.game.bggRank || game.bggRank,
+          weight: data.game.weight || game.weight,
+        });
+        alert('🎉 BGG에서 최신 썸네일과 공식 정보를 성공적으로 갱신했습니다!');
+      } else {
+        alert('BGG에서 해당 게임의 이미지를 찾을 수 없습니다.');
+      }
+    } catch (e: any) {
+      alert(`BGG 조회 오류: ${e.message}`);
+    } finally {
+      setIsRefreshingBgg(false);
+    }
+  };
+
   const handleSaveEdit = async () => {
     await db.games.update(game.id, {
       status,
@@ -78,8 +125,12 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       organizer,
       notes,
       sleeves,
+      bggId: bggIdInput,
+      image: customImageUrl || game.image,
+      thumbnail: customImageUrl || game.thumbnail,
       updatedAt: new Date().toISOString(),
     });
+    setImgError(false);
     setIsEditing(false);
   };
 
@@ -140,17 +191,19 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsEditing(!isEditing)}
-              className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                isEditing
-                  ? 'bg-indigo-600 border-indigo-500 text-white'
-                  : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-              }`}
-            >
-              <Edit3 className="w-3.5 h-3.5" />
-              <span>{isEditing ? '수정 중' : '정보 및 구매가 수정'}</span>
-            </button>
+            {showPrice && (
+              <button
+                onClick={() => setIsEditing(!isEditing)}
+                className={`p-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                  isEditing
+                    ? 'bg-indigo-600 border-indigo-500 text-white'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>{isEditing ? '수정 중' : '정보 및 구매가 수정'}</span>
+              </button>
+            )}
             <button
               onClick={onClose}
               className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
@@ -166,11 +219,21 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           {/* Top Info Banner */}
           <div className="flex flex-col sm:flex-row gap-6">
             {/* Box Image */}
-            <div className="w-full sm:w-48 aspect-square sm:aspect-[3/4] bg-slate-950 rounded-2xl overflow-hidden shadow-xl border border-slate-800 flex-shrink-0 relative">
-              {game.image || game.thumbnail ? (
-                <img src={(game.image || game.thumbnail) || ''} alt={game.titleKr} className="w-full h-full object-cover" />
+            <div className="w-full sm:w-48 aspect-square sm:aspect-[3/4] bg-slate-950 rounded-2xl overflow-hidden shadow-xl border border-slate-800 flex-shrink-0 relative flex items-center justify-center">
+              {(!imgError && (customImageUrl || game.image || game.thumbnail)) ? (
+                <img
+                  src={customImageUrl || game.image || game.thumbnail || ''}
+                  alt={game.titleKr}
+                  referrerPolicy="no-referrer"
+                  onError={() => setImgError(true)}
+                  className="w-full h-full object-cover"
+                />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-5xl">🎲</div>
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800/80 text-slate-500 p-4 text-center">
+                  <span className="text-4xl mb-2">🎲</span>
+                  <span className="text-xs font-bold text-slate-400">{game.titleKr}</span>
+                  <span className="text-[10px] text-slate-500 mt-1">이미지 없음 / 불러오기 실패</span>
+                </div>
               )}
             </div>
 
@@ -223,46 +286,71 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             </div>
           </div>
 
-          {/* Cost Per Play Analysis & Stats */}
-          <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/30 to-slate-900 border border-amber-500/30 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
-                <Coins className="w-4 h-4" />
-                <span>플레이당 비용(가성비) & 구매 정보</span>
-              </h4>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-xs text-indigo-400 hover:text-indigo-300 font-bold"
-              >
-                구매가 변경하기
-              </button>
-            </div>
+          {/* Cost Per Play Analysis & Stats (Owner/Admin Only) or Clean Play Stat (Visitor) */}
+          {showPrice ? (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-950/30 to-slate-900 border border-amber-500/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                  <Coins className="w-4 h-4" />
+                  <span>플레이당 비용(가성비) & 구매 정보</span>
+                </h4>
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="text-xs text-indigo-400 hover:text-indigo-300 font-bold"
+                >
+                  구매가 변경하기
+                </button>
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-[10px] text-slate-400 block font-bold">소장 구매가</span>
-                <span className="text-base font-black text-white">
-                  {price ? `${price.toLocaleString()}원` : '미입력 (수정에서 입력 가능)'}
-                </span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">소장 구매가</span>
+                  <span className="text-base font-black text-white">
+                    {price ? `${price.toLocaleString()}원` : '미입력 (수정에서 입력 가능)'}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">총 플레이 횟수</span>
+                  <span className="text-base font-black text-indigo-400">{playCount}회</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-900/80 border border-amber-500/40">
+                  <span className="text-[10px] text-amber-400 block font-bold">플레이 1회당 비용</span>
+                  <span className="text-base font-black text-amber-300">
+                    {price ? `${costPerPlay?.toLocaleString()}원 / 회` : '-'}
+                  </span>
+                </div>
               </div>
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800">
-                <span className="text-[10px] text-slate-400 block font-bold">총 플레이 횟수</span>
-                <span className="text-base font-black text-indigo-400">{playCount}회</span>
-              </div>
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-amber-500/40">
-                <span className="text-[10px] text-amber-400 block font-bold">플레이 1회당 비용</span>
-                <span className="text-base font-black text-amber-300">
-                  {price ? `${costPerPlay?.toLocaleString()}원 / 회` : '-'}
-                </span>
+              {price && playCount > 0 && (
+                <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <Calculator className="w-3.5 h-3.5 text-amber-400" />
+                  <span>산출 공식: 구매가 {price.toLocaleString()}원 ÷ {playCount}회 플레이 = <strong>회당 {costPerPlay?.toLocaleString()}원</strong></span>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                <Trophy className="w-4 h-4" />
+                <span>플레이 통계 요약</span>
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">누적 플레이</span>
+                  <span className="text-base font-black text-indigo-400">{playCount}회</span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block font-bold">권장 인원</span>
+                  <span className="text-base font-black text-slate-200">
+                    {game.minPlayers === game.maxPlayers ? `${game.minPlayers}인` : `${game.minPlayers}~${game.maxPlayers}인`}
+                  </span>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-800 col-span-2 sm:col-span-1">
+                  <span className="text-[10px] text-slate-400 block font-bold">평균 플레이타임</span>
+                  <span className="text-base font-black text-slate-200">{game.minPlaytime}~{game.maxPlaytime}분</span>
+                </div>
               </div>
             </div>
-            {price && playCount > 0 && (
-              <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                <Calculator className="w-3.5 h-3.5 text-amber-400" />
-                <span>산출 공식: 구매가 {price.toLocaleString()}원 ÷ {playCount}회 플레이 = <strong>회당 {costPerPlay?.toLocaleString()}원</strong></span>
-              </p>
-            )}
-          </div>
+          )}
 
           {/* Funding & Shipping Status (펀딩 / 선주문 배송 추적) */}
           {(game.edition?.includes('펀딩') || game.shippingDate || game.resalePrice || game.shippingHistory) && (
@@ -527,7 +615,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
           </div>
 
           {/* Edit Mode Inputs */}
-          {isEditing && (
+          {isEditing && showPrice && (
             <div className="p-4 rounded-2xl bg-indigo-950/30 border border-indigo-500/40 space-y-4">
               <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-400">보유 정보 및 구매가 수정</h4>
               
@@ -571,6 +659,53 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                     placeholder="예: 65000"
                     className="w-full bg-slate-900 border border-amber-500/60 rounded-xl px-3 py-2 text-xs text-white focus:ring-2 focus:ring-amber-500/50"
                   />
+                </div>
+              </div>
+
+              {/* Image & BGG ID mapping */}
+              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>썸네일 & BGG 매핑 관리</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500">사진이 잘못되었거나 안 나올 때 갱신</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] text-slate-400 block mb-1">BGG 게임 ID</label>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="number"
+                        value={bggIdInput || ''}
+                        onChange={(e) => setBggIdInput(e.target.value ? Number(e.target.value) : undefined)}
+                        placeholder="예: 116954"
+                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRefreshBggImage}
+                        disabled={isRefreshingBgg}
+                        title="BGG에서 최신 썸네일과 정보를 다시 가져옵니다"
+                        className="px-2.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/40 text-xs font-bold flex items-center gap-1 shrink-0 disabled:opacity-50"
+                      >
+                        {isRefreshingBgg ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                        <span>BGG 갱신</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] text-slate-400 block mb-1">직접 이미지 URL 지정</label>
+                    <input
+                      type="url"
+                      value={customImageUrl}
+                      onChange={(e) => setCustomImageUrl(e.target.value)}
+                      placeholder="https://... (이미지 주소 붙여넣기)"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+                    />
+                  </div>
                 </div>
               </div>
 

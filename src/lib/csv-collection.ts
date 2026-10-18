@@ -768,12 +768,13 @@ export async function batchImportGames(
   const existingByBggId = new Map<number, Game>();
   const existingByBoardlifeId = new Map<number, Game>();
   const existingByTitleKr = new Map<string, Game>();
+  const existingByTitleEn = new Map<string, Game>();
 
   existingGames.forEach(g => {
     if (g.bggId) existingByBggId.set(g.bggId, g);
     if (g.boardlifeId) existingByBoardlifeId.set(g.boardlifeId, g);
     if (g.titleKr) existingByTitleKr.set(g.titleKr.trim().toLowerCase(), g);
-    if (g.titleEn) existingByTitleKr.set(g.titleEn.trim().toLowerCase(), g);
+    if (g.titleEn) existingByTitleEn.set(g.titleEn.trim().toLowerCase(), g);
   });
 
   const now = new Date().toISOString();
@@ -793,7 +794,7 @@ export async function batchImportGames(
       (item.bggId ? existingByBggId.get(item.bggId) : undefined) ||
       (item.boardlifeId ? existingByBoardlifeId.get(item.boardlifeId) : undefined) ||
       (normTitleKr ? existingByTitleKr.get(normTitleKr) : undefined) ||
-      (normTitleEn ? existingByTitleKr.get(normTitleEn) : undefined);
+      (normTitleEn ? existingByTitleEn.get(normTitleEn) : undefined);
 
     if (matched) {
       if (mode === 'skip') {

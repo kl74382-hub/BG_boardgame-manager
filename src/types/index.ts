@@ -56,6 +56,8 @@ export interface Game {
   isExpansion?: boolean;      // Whether this is an expansion
   baseGameId?: string;        // If expansion, base game ID
   favorite?: boolean;         // Pinned favorite
+  userId?: string;            // Multi-user owner ID
+  isPublic?: boolean;         // Whether this game entry is public (default: true)
   createdAt: string;
   updatedAt: string;
 }
@@ -95,8 +97,21 @@ export interface Play {
   notes?: string;             // Game session memo / review
   rating?: number;            // Session fun rating (1~5)
   syncedToBgg?: boolean;      // Whether synced to BGG
+  userId?: string;            // Multi-user owner ID
+  isPublic?: boolean;         // Whether this play entry is public
   createdAt: string;
   updatedAt: string;
+}
+
+// User Profile for Multi-User Auth
+export interface UserProfile {
+  id: string;
+  email: string;
+  nickname: string;
+  avatarUrl?: string;
+  bggUsername?: string;
+  role: 'admin' | 'user' | 'guest';
+  createdAt?: string;
 }
 
 export interface Player {

@@ -30,6 +30,7 @@ import {
   STATUS_LABEL_MAP
 } from '@/lib/csv-collection';
 import { MASTER_ENRICHED_GAMES } from '@/lib/master-collection-data';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface BatchCollectionModalProps {
   isOpen: boolean;
@@ -44,6 +45,8 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
   allGames = [],
   filteredGames = [],
 }) => {
+  const { canViewPrivateFields } = useAuth();
+  const showPrice = canViewPrivateFields();
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
 
   // Import states
@@ -572,7 +575,7 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
                             <th className="py-2.5 px-3">인원</th>
                             <th className="py-2.5 px-3">시간</th>
                             <th className="py-2.5 px-3">난이도</th>
-                            <th className="py-2.5 px-3">구매가</th>
+                            {showPrice && <th className="py-2.5 px-3">구매가</th>}
                             <th className="py-2.5 px-3">BGG ID</th>
                           </tr>
                         </thead>
@@ -600,9 +603,11 @@ export const BatchCollectionModal: React.FC<BatchCollectionModalProps> = ({
                               <td className="py-2 px-3 text-slate-400 text-[11px]">
                                 {g.weight ? g.weight.toFixed(2) : '-'}
                               </td>
-                              <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-300 text-[11px]">
-                                {g.purchasePrice ? `${g.purchasePrice.toLocaleString()}원` : '-'}
-                              </td>
+                              {showPrice && (
+                                <td className="py-2 px-3 whitespace-nowrap font-mono text-slate-300 text-[11px]">
+                                  {g.purchasePrice ? `${g.purchasePrice.toLocaleString()}원` : '-'}
+                                </td>
+                              )}
                               <td className="py-2 px-3 font-mono text-slate-400 text-[11px]">
                                 {g.bggId || '-'}
                               </td>

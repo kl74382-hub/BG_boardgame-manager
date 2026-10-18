@@ -22,7 +22,12 @@ import {
   BookOpen,
   FileSpreadsheet,
   Info,
-  Tag
+  Tag,
+  Cloud,
+  CloudUpload,
+  Lock,
+  Crown,
+  LogIn
 } from 'lucide-react';
 import { db, getStoredSettings, saveStoredSettings, resetDatabaseToSeed } from '@/lib/db';
 import { Header } from '@/components/layout/Header';
@@ -31,8 +36,11 @@ import { PlayerManager } from '@/components/players/PlayerManager';
 import { BatchCollectionModal } from '@/components/collection/BatchCollectionModal';
 import { APP_VERSION, APP_RELEASE_DATE, APP_CHANNEL, RELEASE_HISTORY } from '@/lib/version';
 import { AppSettings, Game, Play, Player } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { syncLocalDataToSupabase } from '@/lib/cloud-sync';
 
 export default function SettingsPage() {
+  const { user, isAdmin, isConfigured, openAuthModal, logout } = useAuth();
   const games = useLiveQuery(() => db.games.toArray()) || [];
   const plays = useLiveQuery(() => db.plays.toArray()) || [];
   const players = useLiveQuery(() => db.players.toArray()) || [];
@@ -45,10 +53,33 @@ export default function SettingsPage() {
   const [isSyncingPlays, setIsSyncingPlays] = useState(false);
   const [showTokenHelp, setShowTokenHelp] = useState(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     setSettings(getStoredSettings());
   }, []);
+
+  const handleCloudSync = async () => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+    setIsCloudSyncing(true);
+    setCloudSyncStatus('로컬 데이터를 클라우드로 동기화하는 중입니다...');
+    try {
+      const res = await syncLocalDataToSupabase(user.id);
+      if (res.success) {
+        setCloudSyncStatus(`🎉 동기화 완료! 게임 ${res.uploadedGames}개, 플레이 ${res.uploadedPlays}개가 클라우드에 성공적으로 백업되었습니다.`);
+      } else {
+        setCloudSyncStatus(`동기화 안내: ${res.error}`);
+      }
+    } catch (err: any) {
+      setCloudSyncStatus(`오류 발생: ${err.message}`);
+    } finally {
+      setIsCloudSyncing(false);
+    }
+  };
 
   const handleSaveSettings = () => {
     saveStoredSettings(settings);
@@ -253,6 +284,95 @@ export default function SettingsPage() {
 
       <div className="p-4 md:p-8 space-y-8 max-w-4xl mx-auto w-full">
         
+        {/* 0. Cloud Account & Multi-User Management */}
+        <section className="p-6 rounded-2xl bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 border border-indigo-500/30 space-y-5 shadow-xl">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                <Cloud className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-white">클라우드 계정 & 멀티 유저 동기화</h3>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                    isConfigured 
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' 
+                      : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                  }`}>
+                    {isConfigured ? 'Supabase 연동됨' : '로컬 모드'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  각 사용자가 본인의 계정으로 로그인하여 데이터를 관리하며, 구매가는 타인에게 원천 비공개 처리됩니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={openAuthModal}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 transition-colors flex items-center gap-1.5 shadow"
+              >
+                {user ? '계정/권한 전환' : '로그인 / 관리자 접속'}
+              </button>
+            </div>
+          </div>
+
+          {/* Current User Info Card */}
+          <div className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-lg">
+                {user?.avatarUrl || '🎲'}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-white">{user ? user.nickname : '방문자(게스트)'}</span>
+                  {user?.role === 'admin' ? (
+                    <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold text-[10px] border border-amber-500/30 flex items-center gap-0.5">
+                      <Crown className="w-3 h-3" />
+                      <span>관리자 / 소유자</span>
+                    </span>
+                  ) : user ? (
+                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold text-[10px] border border-indigo-500/30">
+                      일반 회원
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 font-bold text-[10px] border border-rose-500/30">
+                      비로그인 (구매가 비공개)
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {user 
+                    ? `${user.email} • 구매가 및 소장 관리 권한 활성화됨` 
+                    : '현재 구매가와 수정 권한이 숨겨진 게스트 모드로 동작 중입니다.'}
+                </p>
+              </div>
+            </div>
+
+            {user && (
+              <button
+                onClick={handleCloudSync}
+                disabled={isCloudSyncing}
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/30 transition-all disabled:opacity-50"
+              >
+                {isCloudSyncing ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <CloudUpload className="w-3.5 h-3.5" />
+                )}
+                <span>내 로컬 데이터 클라우드 동기화</span>
+              </button>
+            )}
+          </div>
+
+          {cloudSyncStatus && (
+            <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl text-xs text-indigo-300 leading-relaxed animate-in fade-in">
+              {cloudSyncStatus}
+            </div>
+          )}
+        </section>
+
         {/* 1. BGG Integration Settings */}
         <section className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-5">
           <div className="flex items-center justify-between">
@@ -456,13 +576,20 @@ export default function SettingsPage() {
             앱을 처음 상태(한국 인기 보드게임 10종, 샘플 플레이어 및 플레이 기록 프리셋)로 되돌립니다.
           </p>
 
-          <button
-            onClick={handleResetToSeed}
-            className="px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center gap-1.5 transition-colors"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>기본 프리셋 데이터셋으로 복구 (Reset)</span>
-          </button>
+          {isAdmin ? (
+            <button
+              onClick={handleResetToSeed}
+              className="px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center gap-1.5 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>기본 프리셋 데이터셋으로 복구 (Reset)</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-slate-500 p-2.5 rounded-xl bg-slate-950/40 border border-slate-800">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>데이터베이스 초기화는 관리자/소유자 계정으로만 실행할 수 있습니다.</span>
+            </div>
+          )}
         </section>
 
         {/* 5. Version & Build Information */}

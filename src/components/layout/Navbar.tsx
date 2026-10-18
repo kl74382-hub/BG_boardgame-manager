@@ -10,9 +10,11 @@ import {
   BarChart3, 
   Wrench, 
   Settings,
-  Plus
+  Plus,
+  LogIn
 } from 'lucide-react';
 import { APP_VERSION } from '@/lib/version';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface NavItem {
   name: string;
@@ -35,6 +37,7 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ onOpenLogPlay }) => {
   const pathname = usePathname();
+  const { user, openAuthModal, logout } = useAuth();
 
   return (
     <>
@@ -91,8 +94,58 @@ export const Navbar: React.FC<NavbarProps> = ({ onOpenLogPlay }) => {
           })}
         </nav>
 
+        {/* User Session Profile Card */}
+        <div className="my-3 p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80">
+          {user ? (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-sm">
+                  {user.avatarUrl || '🎲'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-xs font-bold text-slate-200 truncate">{user.nickname}</p>
+                    {user.role === 'admin' && (
+                      <span className="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-400 font-bold">
+                        관리자
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-500 truncate">{user.email}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-800/60">
+                <button
+                  onClick={openAuthModal}
+                  className="flex-1 py-1 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold text-center transition-colors"
+                >
+                  계정/권한
+                </button>
+                <button
+                  onClick={logout}
+                  className="py-1 px-2 rounded-lg bg-slate-800/60 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 text-[10px] font-semibold transition-colors"
+                >
+                  로그아웃
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center space-y-2 py-1">
+              <p className="text-[11px] font-bold text-slate-300">방문자(게스트) 모드</p>
+              <p className="text-[10px] text-slate-500">구매가 비공개 상태입니다</p>
+              <button
+                onClick={openAuthModal}
+                className="w-full py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition-colors flex items-center justify-center gap-1 shadow-sm"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>로그인하기</span>
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Footer Info */}
-        <div className="pt-4 border-t border-slate-800/60 text-xs text-slate-500 px-2 space-y-1">
+        <div className="pt-3 border-t border-slate-800/60 text-xs text-slate-500 px-2 space-y-1">
           <div className="flex items-center justify-between">
             <span>BGG / BoardLife Bridge</span>
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

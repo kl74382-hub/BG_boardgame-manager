@@ -95,7 +95,8 @@ export const Header: React.FC<HeaderProps> = ({
         ) : (
           <button
             onClick={openAuthModal}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-slate-200 hover:text-white transition-all shadow-sm"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 border border-indigo-500/40 text-xs font-bold text-indigo-300 hover:text-white transition-all shadow-sm"
+            title="관리자 또는 가입 계정으로 로그인"
           >
             <Lock className="w-3.5 h-3.5 text-indigo-400" />
             <span>로그인</span>

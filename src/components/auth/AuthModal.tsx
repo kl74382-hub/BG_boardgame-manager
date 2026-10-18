@@ -25,6 +25,7 @@ export const AuthModal: React.FC = () => {
     loginWithEmail, 
     signUpWithEmail, 
     quickLoginDemo,
+    logout,
     isConfigured,
     user 
   } = useAuth();
@@ -64,7 +65,7 @@ export const AuthModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
-        className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header Banner */}
@@ -82,45 +83,146 @@ export const AuthModal: React.FC = () => {
             </div>
             <div>
               <h3 className="text-lg font-bold text-white tracking-tight">
-                {mode === 'login' ? 'BG Stats KR 로그인' : '새 계정 만들기'}
+                {user ? '계정 및 권한 설정' : (mode === 'login' ? 'BG Stats KR 로그인' : '새 계정 만들기')}
               </h3>
               <p className="text-xs text-slate-400">
-                {mode === 'login' 
-                  ? '내 컬렉션과 비공개 구매가/기록을 안전하게 관리하세요' 
-                  : '나만의 보드게임 컬렉션과 전적을 기록해보세요'}
+                {user
+                  ? `${user.nickname}님으로 로그인되어 있습니다`
+                  : '관리자 또는 가입한 계정으로 로그인하여 데이터를 안전하게 관리하세요'}
               </p>
             </div>
           </div>
 
-          {/* Mode Switch Tabs */}
-          <div className="flex bg-slate-950/60 rounded-xl p-1 mt-5 border border-slate-800">
-            <button
-              onClick={() => { setMode('login'); setErrorMessage(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                mode === 'login' 
-                  ? 'bg-indigo-600 text-white shadow' 
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>로그인</span>
-            </button>
-            <button
-              onClick={() => { setMode('signup'); setErrorMessage(null); }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-                mode === 'signup' 
-                  ? 'bg-indigo-600 text-white shadow' 
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>회원가입</span>
-            </button>
-          </div>
+          {/* If already logged in, show current session banner & logout */}
+          {user ? (
+            <div className="mt-4 p-3 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <span className="text-xl">{user.avatarUrl || '🎲'}</span>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold text-white truncate">{user.nickname}</span>
+                    {user.role === 'admin' ? (
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-bold text-[9px] border border-amber-500/30 flex items-center gap-0.5">
+                        <Crown className="w-2.5 h-2.5" />
+                        <span>관리자</span>
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400 font-bold text-[9px] border border-indigo-500/30">
+                        회원
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 truncate">{user.email}</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                className="px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 hover:text-rose-300 text-xs font-semibold transition-colors shrink-0"
+              >
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            /* Mode Switch Tabs for Guest */
+            <div className="flex bg-slate-950/60 rounded-xl p-1 mt-5 border border-slate-800">
+              <button
+                onClick={() => { setMode('login'); setErrorMessage(null); }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  mode === 'login' 
+                    ? 'bg-indigo-600 text-white shadow' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span>계정 로그인</span>
+              </button>
+              <button
+                onClick={() => { setMode('signup'); setErrorMessage(null); }}
+                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                  mode === 'signup' 
+                    ? 'bg-indigo-600 text-white shadow' 
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>회원가입</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Form Body */}
         <div className="p-6 space-y-5">
+          {/* Quick Direct Login (Admin / Demo User) */}
+          <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>원클릭 계정 로그인 / 전환</span>
+              </span>
+              <span className="text-[10px] text-slate-400">
+                접속 정보 자동 유지
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => quickLoginDemo('admin')}
+                className={`p-2.5 rounded-xl border text-left transition-all group ${
+                  user?.role === 'admin'
+                    ? 'bg-amber-950/30 border-amber-500/50 ring-1 ring-amber-500/30'
+                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
+                  <span className="flex items-center gap-1.5">
+                    <Crown className="w-3.5 h-3.5" />
+                    <span>관리자(소유자)</span>
+                  </span>
+                  {user?.role === 'admin' && <span className="text-[9px] text-amber-400 font-normal">선택됨</span>}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Nana 관리자 권한으로 로그인 (구매가/수정 전체 가능)</p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => quickLoginDemo('user')}
+                className={`p-2.5 rounded-xl border text-left transition-all group ${
+                  user?.role === 'user'
+                    ? 'bg-indigo-950/30 border-indigo-500/50 ring-1 ring-indigo-500/30'
+                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs font-bold text-indigo-400 group-hover:text-indigo-300">
+                  <span className="flex items-center gap-1.5">
+                    <User className="w-3.5 h-3.5" />
+                    <span>일반 회원</span>
+                  </span>
+                  {user?.role === 'user' && <span className="text-[9px] text-indigo-400 font-normal">선택됨</span>}
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">일반 등록 계정으로 즉시 로그인</p>
+              </button>
+            </div>
+
+            {user && (
+              <button
+                type="button"
+                onClick={() => quickLoginDemo('guest')}
+                className="w-full mt-1.5 py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 text-[11px] font-semibold text-slate-400 hover:text-rose-400 transition-colors flex items-center justify-center gap-1.5"
+              >
+                <EyeOff className="w-3 h-3 text-rose-400" />
+                <span>게스트(방문자) 모드로 전환 (로그아웃)</span>
+              </button>
+            )}
+          </div>
+
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-slate-800"></div>
+            <span className="flex-shrink mx-3 text-[11px] font-semibold text-slate-500">또는 이메일 계정으로 접속</span>
+            <div className="flex-grow border-t border-slate-800"></div>
+          </div>
+
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
               {errorMessage}
@@ -198,49 +300,8 @@ export const AuthModal: React.FC = () => {
               <span>백엔드 상태:</span>
             </span>
             <span className={`font-semibold ${isConfigured ? 'text-emerald-400' : 'text-amber-400'}`}>
-              {isConfigured ? '● Supabase 연동됨' : '● 로컬 데모 모드 (설정 가능)'}
+              {isConfigured ? '● Supabase 연동됨' : '● 로컬 세션 모드'}
             </span>
-          </div>
-
-          {/* Quick Role Experience (Instant testing for Admin vs Guest vs User) */}
-          <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>권한별 즉시 체험 (클릭하여 테스트)</span>
-              </span>
-              {user && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-400 font-bold border border-indigo-500/30">
-                  현재: {user.role === 'admin' ? '관리자' : '일반 유저'}
-                </span>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => quickLoginDemo('admin')}
-                className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left transition-all group"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400 group-hover:text-amber-300">
-                  <Crown className="w-3.5 h-3.5" />
-                  <span>관리자(소유자)</span>
-                </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">구매가·가성비·수정 권한 전체 표시</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => quickLoginDemo('guest')}
-                className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700/80 text-left transition-all group"
-              >
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 group-hover:text-white">
-                  <EyeOff className="w-3.5 h-3.5 text-rose-400" />
-                  <span>게스트(방문자)</span>
-                </div>
-                <p className="text-[10px] text-slate-400 mt-0.5">⭐ 구매가/가성비 완벽 숨김</p>
-              </button>
-            </div>
           </div>
         </div>
 

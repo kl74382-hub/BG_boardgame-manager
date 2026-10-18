@@ -76,18 +76,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (saved) {
         setUser(JSON.parse(saved));
       } else {
-        // Default: If no session, default to demo admin for existing single user or guest
-        // Let's set default to logged-in Admin owner (Nana) so existing user experience is preserved seamlessly!
-        const defaultAdmin: UserProfile = {
-          id: 'admin-nana',
-          email: 'nana@bgstats.kr',
-          nickname: 'Nana (관리자)',
-          role: 'admin',
-          avatarUrl: '🎲',
-          bggUsername: 'Bitnara',
-        };
-        setUser(defaultAdmin);
-        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(defaultAdmin));
+        // Default: If no session exists, start in Guest state (user = null)
+        setUser(null);
       }
     } catch {
       setUser(null);
@@ -278,7 +268,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       quickLoginDemo,
       canViewPrivateFields,
     }),
-    [user, loading, isAuthModalOpen]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user, loading, isAuthModalOpen, isLoggedIn, isAdmin]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

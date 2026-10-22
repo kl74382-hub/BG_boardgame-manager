@@ -1,6 +1,14 @@
-﻿import { Game, Play, UserProfile } from '@/types';
+import { Game, Play, UserProfile } from '@/types';
+import { getRegisteredAccounts } from '@/contexts/AuthContext';
 
 export const ADMIN_USER_ID = 'admin-nana';
+
+export interface PublicUserProfile {
+  id: string;
+  nickname: string;
+  role: 'admin' | 'user';
+  avatarUrl?: string;
+}
 
 /**
  * Returns true if the item belongs to the master owner (Nana / seed data).
@@ -11,60 +19,107 @@ export function isOwnerItem(item: { userId?: string }): boolean {
 }
 
 /**
- * Filters games based on the currently logged-in user.
- * - Admin: sees owner's 421 games + any games created by admin.
- * - Guest: sees owner's public games (showcase mode).
- * - Normal User (role === 'user'): sees ONLY games created by that user (userId === user.id).
- *
- * @param viewMode Optional override for normal user to browse owner's showcase collection ('my' | 'showcase')
+ * Returns a list of public user profiles for browsing/sharing.
+ */
+export function getPublicUserList(): PublicUserProfile[] {
+  const accounts = getRegisteredAccounts();
+  return accounts.map((acc) => ({
+    id: acc.id,
+    nickname: acc.nickname,
+    role: acc.role,
+    avatarUrl: acc.avatarUrl || (acc.role === 'admin' ? '👑' : '🎲'),
+  }));
+}
+
+/**
+ * Looks up a public user by ID.
+ */
+export function getPublicUserById(userId: string): PublicUserProfile | undefined {
+  if (userId === ADMIN_USER_ID || userId === 'showcase') {
+    return {
+      id: ADMIN_USER_ID,
+      nickname: 'Nana (소유자/관리자)',
+      role: 'admin',
+      avatarUrl: '👑',
+    };
+  }
+  const accounts = getPublicUserList();
+  return accounts.find((u) => u.id === userId);
+}
+
+/**
+ * Filters games based on the currently viewed target user or logged-in user.
+ * - targetUserId explicitly provided:
+ *   - 'my': current user's games
+ *   - 'admin-nana' | 'showcase': owner's master games
+ *   - other userId: games owned by that specific user
+ * - No targetUserId provided:
+ *   - Admin sees owner + admin games
+ *   - Guest sees owner games
+ *   - Normal user sees only their own games
  */
 export function filterGamesForUser(
   games: Game[],
-  user: UserProfile | null,
-  viewMode: 'my' | 'showcase' = 'my'
+  currentUser: UserProfile | null,
+  targetUserId?: string | null
 ): Game[] {
-  if (!user) {
+  // 1. Explicit targetUserId specified
+  if (targetUserId) {
+    if (targetUserId === 'my') {
+      if (!currentUser) return games.filter((g) => isOwnerItem(g) && g.isPublic !== false);
+      if (currentUser.role === 'admin') return games.filter((g) => isOwnerItem(g) || g.userId === currentUser.id);
+      return games.filter((g) => g.userId === currentUser.id);
+    }
+    if (targetUserId === ADMIN_USER_ID || targetUserId === 'showcase') {
+      return games.filter((g) => isOwnerItem(g) && g.isPublic !== false);
+    }
+    // Specific third-party user
+    return games.filter((g) => g.userId === targetUserId && g.isPublic !== false);
+  }
+
+  // 2. Default view without explicit target
+  if (!currentUser) {
     // Guest: sees owner's games
     return games.filter((g) => isOwnerItem(g) && g.isPublic !== false);
   }
 
-  if (user.role === 'admin') {
-    // Admin sees owner games and admin-created games
-    return games.filter((g) => isOwnerItem(g) || g.userId === user.id);
+  if (currentUser.role === 'admin') {
+    return games.filter((g) => isOwnerItem(g) || g.userId === currentUser.id);
   }
 
-  // Normal user
-  if (viewMode === 'showcase') {
-    // User explicitly chose to view owner's master collection
-    return games.filter((g) => isOwnerItem(g) && g.isPublic !== false);
-  }
-
-  // Default: User only sees their own games!
-  return games.filter((g) => g.userId === user.id);
+  // Normal user default: only their own games!
+  return games.filter((g) => g.userId === currentUser.id);
 }
 
 /**
- * Filters plays based on the currently logged-in user.
- * - Admin: sees owner's plays + admin plays.
- * - Guest: sees owner's plays.
- * - Normal User: sees ONLY plays created by that user (userId === user.id).
+ * Filters plays based on the currently viewed target user or logged-in user.
  */
 export function filterPlaysForUser(
   plays: Play[],
-  user: UserProfile | null,
-  viewMode: 'my' | 'showcase' = 'my'
+  currentUser: UserProfile | null,
+  targetUserId?: string | null
 ): Play[] {
-  if (!user) {
+  // 1. Explicit targetUserId specified
+  if (targetUserId) {
+    if (targetUserId === 'my') {
+      if (!currentUser) return plays.filter((p) => isOwnerItem(p));
+      if (currentUser.role === 'admin') return plays.filter((p) => isOwnerItem(p) || p.userId === currentUser.id);
+      return plays.filter((p) => p.userId === currentUser.id);
+    }
+    if (targetUserId === ADMIN_USER_ID || targetUserId === 'showcase') {
+      return plays.filter((p) => isOwnerItem(p));
+    }
+    return plays.filter((p) => p.userId === targetUserId);
+  }
+
+  // 2. Default view without explicit target
+  if (!currentUser) {
     return plays.filter((p) => isOwnerItem(p));
   }
 
-  if (user.role === 'admin') {
-    return plays.filter((p) => isOwnerItem(p) || p.userId === user.id);
+  if (currentUser.role === 'admin') {
+    return plays.filter((p) => isOwnerItem(p) || p.userId === currentUser.id);
   }
 
-  if (viewMode === 'showcase') {
-    return plays.filter((p) => isOwnerItem(p));
-  }
-
-  return plays.filter((p) => p.userId === user.id);
+  return plays.filter((p) => p.userId === currentUser.id);
 }

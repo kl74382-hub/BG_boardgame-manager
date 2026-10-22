@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   Plus, 
@@ -26,27 +26,59 @@ import { GameDetailModal } from '@/components/collection/GameDetailModal';
 import { AddGameModal } from '@/components/collection/AddGameModal';
 import { BatchCollectionModal } from '@/components/collection/BatchCollectionModal';
 import { LogPlayModal } from '@/components/plays/LogPlayModal';
+import { UserViewSelector } from '@/components/layout/UserViewSelector';
 import { Game, GameStatus, Play } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
 import { useAuth } from '@/contexts/AuthContext';
-import { filterGamesForUser, filterPlaysForUser, isOwnerItem } from '@/lib/user-data-filter';
+import { filterGamesForUser, filterPlaysForUser, isOwnerItem, ADMIN_USER_ID } from '@/lib/user-data-filter';
 
 type SortOption = 'rank' | 'rating' | 'plays' | 'cost' | 'weight' | 'title';
 
 export default function CollectionPage() {
   const { user, isAdmin, openAuthModal } = useAuth();
-  const [viewMode, setViewMode] = useState<'my' | 'showcase'>('my');
+
+  // Resolve initial selectedUserId from URL ?user= param (client-side only)
+  const [selectedUserId, setSelectedUserId] = useState<string>('my');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlUser = params.get('user');
+      if (urlUser) {
+        setSelectedUserId(urlUser);
+      } else {
+        setSelectedUserId('my');
+      }
+    }
+  }, []);
+
+  // Keep URL in sync when user switches
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserId(userId);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (userId === 'my') {
+        url.searchParams.delete('user');
+      } else {
+        url.searchParams.set('user', userId);
+      }
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
 
   const allGames = useLiveQuery(() => db.games.toArray()) || [];
   const allPlays = useLiveQuery(() => db.plays.toArray()) || [];
 
-  // Filter games and plays according to active user and viewMode
-  const games = filterGamesForUser(allGames, user, viewMode);
-  const plays = filterPlaysForUser(allPlays, user, viewMode);
+  // Filter games and plays according to active user and selectedUserId
+  const games = filterGamesForUser(allGames, user, selectedUserId);
+  const plays = filterPlaysForUser(allPlays, user, selectedUserId);
 
-  // Manage permissions: admin has full manage access; normal user can manage their own collection in 'my' mode
-  const canManage = Boolean(isAdmin || (user?.role === 'user' && viewMode === 'my'));
+  // canManage: only if viewing own data (admin always can manage)
+  const isViewingOwn =
+    selectedUserId === 'my' ||
+    (user && selectedUserId === user.id);
+  const canManage = Boolean(isAdmin || (user?.role === 'user' && isViewingOwn));
 
   // Filter & Search states
   const [activeTab, setActiveTab] = useState<GameStatus | 'all'>('all');
@@ -177,44 +209,13 @@ export default function CollectionPage() {
 
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
         
-        {/* Normal user view mode toggle */}
-        {user?.role === 'user' && (
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-sm">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setViewMode('my')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  viewMode === 'my'
-                    ? 'bg-indigo-600 text-white shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>내 컬렉션</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${viewMode === 'my' ? 'bg-white/25 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  {allGames.filter(g => g.userId === user.id).length}
-                </span>
-              </button>
-              <button
-                onClick={() => setViewMode('showcase')}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
-                  viewMode === 'showcase'
-                    ? 'bg-amber-600 text-white shadow'
-                    : 'bg-slate-800 text-slate-400 hover:text-slate-200'
-                }`}
-              >
-                <span>👑 관리자(Nana) 컬렉션 둘러보기</span>
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${viewMode === 'showcase' ? 'bg-white/25 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                  {allGames.filter(isOwnerItem).length}
-                </span>
-              </button>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              {viewMode === 'my'
-                ? '내가 직접 등록한 보드게임 컬렉션입니다.'
-                : '관리자(Nana)의 마스터 컬렉션을 검색하고 둘러보는 중입니다.'}
-            </p>
-          </div>
-        )}
+        {/* User View Selector - for all users */}
+        <UserViewSelector
+          selectedUserId={selectedUserId}
+          onSelectUser={handleSelectUser}
+          pageType="collection"
+          totalItemsCount={games.length}
+        />
 
         {/* Status Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
@@ -385,13 +386,13 @@ export default function CollectionPage() {
         ) : (
           <div className="p-12 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-3">
             <p className="text-base font-bold text-slate-300">
-              {user?.role === 'user' && viewMode === 'my' && allGames.filter(g => g.userId === user.id).length === 0
+              {user?.role === 'user' && isViewingOwn && allGames.filter(g => g.userId === user.id).length === 0
                 ? '아직 등록된 내 보드게임이 없습니다.'
                 : '검색 조건에 맞는 게임이 없습니다.'}
             </p>
             <p className="text-xs text-slate-500">
-              {user?.role === 'user' && viewMode === 'my' && allGames.filter(g => g.userId === user.id).length === 0
-                ? '새 게임을 직접 추가하거나, 상단 [관리자 컬렉션 둘러보기]로 등록된 마스터 컬렉션을 둘러보세요.'
+              {user?.role === 'user' && isViewingOwn && allGames.filter(g => g.userId === user.id).length === 0
+                ? '새 게임을 직접 추가하거나, 상단 [유저 둘러보기]로 다른 보드게이머의 컬렉션을 둘러보세요.'
                 : '필터를 초기화하거나 새 게임을 추가해 보세요.'}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">

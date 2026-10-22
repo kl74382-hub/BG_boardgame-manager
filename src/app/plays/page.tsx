@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   Plus, 
@@ -18,6 +18,7 @@ import { db } from '@/lib/db';
 import { Header } from '@/components/layout/Header';
 import { PlayCard } from '@/components/plays/PlayCard';
 import { LogPlayModal } from '@/components/plays/LogPlayModal';
+import { UserViewSelector } from '@/components/layout/UserViewSelector';
 import { Play, Game } from '@/types';
 import { matchGameSearch } from '@/lib/hangul-search';
 import { useAuth } from '@/contexts/AuthContext';
@@ -25,13 +26,45 @@ import { filterGamesForUser, filterPlaysForUser } from '@/lib/user-data-filter';
 
 export default function PlaysPage() {
   const { user } = useAuth();
+
+  // Resolve initial selectedUserId from URL ?user= param
+  const [selectedUserId, setSelectedUserId] = useState<string>('my');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlUser = params.get('user');
+      if (urlUser) {
+        setSelectedUserId(urlUser);
+      } else {
+        setSelectedUserId('my');
+      }
+    }
+  }, []);
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUserId(userId);
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (userId === 'my') {
+        url.searchParams.delete('user');
+      } else {
+        url.searchParams.set('user', userId);
+      }
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
+
   const allGames = useLiveQuery(() => db.games.toArray()) || [];
   const allPlays = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray()) || [];
   const players = useLiveQuery(() => db.players.toArray()) || [];
   const locations = useLiveQuery(() => db.locations.toArray()) || [];
 
-  const games = filterGamesForUser(allGames, user);
-  const plays = filterPlaysForUser(allPlays, user);
+  const games = filterGamesForUser(allGames, user, selectedUserId);
+  const plays = filterPlaysForUser(allPlays, user, selectedUserId);
+
+  // canManage: only if viewing own plays
+  const isViewingOwn = selectedUserId === 'my' || (user && selectedUserId === user.id);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,6 +144,14 @@ export default function PlaysPage() {
 
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
         
+        {/* User View Selector - for all users */}
+        <UserViewSelector
+          selectedUserId={selectedUserId}
+          onSelectUser={handleSelectUser}
+          pageType="plays"
+          totalItemsCount={plays.length}
+        />
+
         {/* Filters Bar */}
         <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3">
           <div className="flex items-center justify-between">
@@ -204,9 +245,9 @@ export default function PlaysPage() {
                 play={play}
                 players={players}
                 game={games.find(g => g.id === play.gameId)}
-                onEdit={handleEditPlay}
-                onDelete={handleDeletePlay}
-                onClone={handleClonePlay}
+                onEdit={isViewingOwn ? handleEditPlay : undefined}
+                onDelete={isViewingOwn ? handleDeletePlay : undefined}
+                onClone={isViewingOwn ? handleClonePlay : undefined}
               />
             ))}
           </div>

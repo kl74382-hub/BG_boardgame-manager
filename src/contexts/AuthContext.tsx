@@ -13,8 +13,8 @@ interface AuthContextType {
   isAuthModalOpen: boolean;
   openAuthModal: () => void;
   closeAuthModal: () => void;
-  loginWithEmail: (email: string, password: string) => Promise<{ error?: string }>;
-  signUpWithEmail: (email: string, password: string, nickname: string) => Promise<{ error?: string }>;
+  loginWithEmail: (email: string, password: string, rememberMe?: boolean) => Promise<{ error?: string }>;
+  signUpWithEmail: (email: string, password: string, nickname: string, rememberMe?: boolean) => Promise<{ error?: string }>;
   loginWithOAuth: (provider: 'google' | 'kakao') => Promise<void>;
   logout: () => Promise<void>;
   quickLoginDemo: (role: 'admin' | 'user' | 'guest') => void;
@@ -121,17 +121,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           await fetchUserProfile(session.user.id, session.user.email || '');
         } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-          localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+          clearUserSession();
         }
       });
       return () => subscription.unsubscribe();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const loadSavedLocalUser = () => {
+  const saveUserSession = (profile: UserProfile, rememberMe: boolean = true) => {
+    setUser(profile);
+    if (typeof window === 'undefined') return;
     try {
-      const saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
+      if (rememberMe) {
+        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
+        sessionStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+      } else {
+        sessionStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
+        localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+      }
+    } catch (e) {
+      console.error('Failed to save user session:', e);
+    }
+  };
+
+  const clearUserSession = () => {
+    setUser(null);
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+      sessionStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+    } catch (e) {
+      console.error('Failed to clear user session:', e);
+    }
+  };
+
+  const loadSavedLocalUser = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      // 1. Check persistent localStorage (Automatic login / Remember me)
+      let saved = localStorage.getItem(LOCAL_STORAGE_USER_KEY);
+      // 2. If not found, check transient sessionStorage (Session only)
+      if (!saved) {
+        saved = sessionStorage.getItem(LOCAL_STORAGE_USER_KEY);
+      }
+
       if (saved) {
         setUser(JSON.parse(saved));
       } else {
@@ -143,7 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const fetchUserProfile = async (userId: string, email: string) => {
+  const fetchUserProfile = async (userId: string, email: string, rememberMe: boolean = true) => {
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -161,8 +195,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           bggUsername: data.bgg_username,
           createdAt: data.created_at,
         };
-        setUser(profile);
-        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
+        saveUserSession(profile, rememberMe);
       } else {
         // Basic fallback profile from session
         const basicUser: UserProfile = {
@@ -171,15 +204,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           nickname: email.split('@')[0],
           role: 'user',
         };
-        setUser(basicUser);
-        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(basicUser));
+        saveUserSession(basicUser, rememberMe);
       }
     } catch (e) {
       console.error('Failed to load profile:', e);
     }
   };
 
-  const loginWithEmail = async (email: string, password: string): Promise<{ error?: string }> => {
+  const loginWithEmail = async (
+    email: string, 
+    password: string, 
+    rememberMe: boolean = true
+  ): Promise<{ error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPw = password.trim();
 
@@ -195,7 +231,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!account && cleanEmail === 'nana@bgstats.kr') {
         const adminAcc = DEFAULT_ACCOUNTS[0];
         if (cleanPw !== adminAcc.password) {
-          return { error: '관리자 비밀번호가 일치하지 않습니다. (관리자 초기 PW: admin1234)' };
+          return { error: '이메일 또는 비밀번호가 일치하지 않습니다.' };
         }
         const adminProfile: UserProfile = {
           id: adminAcc.id,
@@ -205,8 +241,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           avatarUrl: adminAcc.avatarUrl,
           bggUsername: adminAcc.bggUsername,
         };
-        setUser(adminProfile);
-        localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(adminProfile));
+        saveUserSession(adminProfile, rememberMe);
         setIsAuthModalOpen(false);
         return {};
       }
@@ -216,11 +251,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       if (account.password !== cleanPw) {
-        return {
-          error: account.role === 'admin'
-            ? '관리자 비밀번호가 일치하지 않습니다. (초기 PW: admin1234)'
-            : '비밀번호가 일치하지 않습니다. (체험 계정 PW: user1234)'
-        };
+        return { error: '이메일 또는 비밀번호가 일치하지 않습니다.' };
       }
 
       const profile: UserProfile = {
@@ -231,8 +262,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         avatarUrl: account.avatarUrl,
         bggUsername: account.bggUsername,
       };
-      setUser(profile);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
+      saveUserSession(profile, rememberMe);
       setIsAuthModalOpen(false);
       return {};
     }
@@ -241,7 +271,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPw });
       if (error) return { error: error.message };
       if (data.user) {
-        await fetchUserProfile(data.user.id, data.user.email || cleanEmail);
+        await fetchUserProfile(data.user.id, data.user.email || cleanEmail, rememberMe);
         setIsAuthModalOpen(false);
       }
       return {};
@@ -250,7 +280,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUpWithEmail = async (email: string, password: string, nickname: string): Promise<{ error?: string }> => {
+  const signUpWithEmail = async (
+    email: string, 
+    password: string, 
+    nickname: string, 
+    rememberMe: boolean = true
+  ): Promise<{ error?: string }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPw = password.trim();
     const cleanNick = nickname.trim();
@@ -282,8 +317,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: 'user',
         avatarUrl: '🎲',
       };
-      setUser(profile);
-      localStorage.setItem(LOCAL_STORAGE_USER_KEY, JSON.stringify(profile));
+      saveUserSession(profile, rememberMe);
       setIsAuthModalOpen(false);
       return {};
     }
@@ -301,7 +335,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (error) return { error: error.message };
       if (data.user) {
-        await fetchUserProfile(data.user.id, data.user.email || cleanEmail);
+        await fetchUserProfile(data.user.id, data.user.email || cleanEmail, rememberMe);
         setIsAuthModalOpen(false);
       }
       return {};
@@ -313,7 +347,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loginWithOAuth = async (provider: 'google' | 'kakao') => {
     if (!isSupabaseConfigured) {
       // Demo OAuth fallback -> user
-      await loginWithEmail('user@bgstats.kr', 'user1234');
+      await loginWithEmail('user@bgstats.kr', 'user1234', true);
       return;
     }
     await supabase.auth.signInWithOAuth({
@@ -328,8 +362,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     }
-    setUser(null);
-    localStorage.removeItem(LOCAL_STORAGE_USER_KEY);
+    clearUserSession();
     setIsAuthModalOpen(false);
   };
 

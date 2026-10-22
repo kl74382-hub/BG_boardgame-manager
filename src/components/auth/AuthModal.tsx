@@ -5,14 +5,10 @@ import {
   X, 
   LogIn, 
   UserPlus, 
-  ShieldCheck, 
   Mail, 
   Lock, 
   User, 
-  Sparkles, 
   Crown, 
-  UserCheck, 
-  EyeOff, 
   Database,
   ArrowRight
 } from 'lucide-react';
@@ -24,7 +20,6 @@ export const AuthModal: React.FC = () => {
     closeAuthModal, 
     loginWithEmail, 
     signUpWithEmail, 
-    quickLoginDemo,
     logout,
     isConfigured,
     user 
@@ -34,6 +29,7 @@ export const AuthModal: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [nickname, setNickname] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -46,7 +42,7 @@ export const AuthModal: React.FC = () => {
 
     try {
       if (mode === 'login') {
-        const res = await loginWithEmail(email, password);
+        const res = await loginWithEmail(email, password, rememberMe);
         if (res.error) setErrorMessage(res.error);
       } else {
         if (!nickname.trim()) {
@@ -54,7 +50,7 @@ export const AuthModal: React.FC = () => {
           setLoading(false);
           return;
         }
-        const res = await signUpWithEmail(email, password, nickname);
+        const res = await signUpWithEmail(email, password, nickname, rememberMe);
         if (res.error) setErrorMessage(res.error);
       }
     } finally {
@@ -152,88 +148,7 @@ export const AuthModal: React.FC = () => {
         </div>
 
         {/* Form Body */}
-        {/* Form Body */}
         <div className="p-6 space-y-5">
-          {/* Quick Account Prefill Section (Requires password authentication) */}
-          <div className="bg-slate-950/50 border border-slate-800/80 rounded-2xl p-3.5 space-y-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                <span>체험 계정 정보 자동 완성</span>
-              </span>
-              <span className="text-[10px] text-slate-400">
-                선택 후 아래 [로그인하기] 클릭
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setEmail('admin@bgstats.kr');
-                  setPassword('admin1234');
-                  setErrorMessage(null);
-                }}
-                className={`p-2.5 rounded-xl border text-left transition-all group ${
-                  user?.role === 'admin'
-                    ? 'bg-amber-950/30 border-amber-500/50 ring-1 ring-amber-500/30'
-                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80'
-                }`}
-              >
-                <div className="flex items-center justify-between text-xs font-bold text-amber-400 group-hover:text-amber-300">
-                  <span className="flex items-center gap-1.5">
-                    <Crown className="w-3.5 h-3.5" />
-                    <span>관리자(소유자)</span>
-                  </span>
-                  {user?.role === 'admin' && <span className="text-[9px] text-amber-400 font-normal">현재접속중</span>}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">admin@bgstats.kr 입력</p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('login');
-                  setEmail('user@bgstats.kr');
-                  setPassword('user1234');
-                  setErrorMessage(null);
-                }}
-                className={`p-2.5 rounded-xl border text-left transition-all group ${
-                  user?.role === 'user'
-                    ? 'bg-indigo-950/30 border-indigo-500/50 ring-1 ring-indigo-500/30'
-                    : 'bg-slate-900 hover:bg-slate-800 border-slate-700/80'
-                }`}
-              >
-                <div className="flex items-center justify-between text-xs font-bold text-indigo-400 group-hover:text-indigo-300">
-                  <span className="flex items-center gap-1.5">
-                    <User className="w-3.5 h-3.5" />
-                    <span>일반 회원</span>
-                  </span>
-                  {user?.role === 'user' && <span className="text-[9px] text-indigo-400 font-normal">현재접속중</span>}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">user@bgstats.kr 입력</p>
-              </button>
-            </div>
-
-            {user && (
-              <button
-                type="button"
-                onClick={logout}
-                className="w-full mt-1.5 py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800/80 border border-slate-800 text-[11px] font-semibold text-slate-400 hover:text-rose-400 transition-colors flex items-center justify-center gap-1.5"
-              >
-                <EyeOff className="w-3 h-3 text-rose-400" />
-                <span>게스트(방문자) 모드로 전환 (로그아웃)</span>
-              </button>
-            )}
-          </div>
-
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-slate-800"></div>
-            <span className="flex-shrink mx-3 text-[11px] font-semibold text-slate-500">또는 이메일 계정으로 접속</span>
-            <div className="flex-grow border-t border-slate-800"></div>
-          </div>
-
           {errorMessage && (
             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-medium">
               {errorMessage}
@@ -286,6 +201,21 @@ export const AuthModal: React.FC = () => {
                 placeholder="••••••••"
                 className="w-full bg-slate-950/70 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               />
+            </div>
+
+            {/* Remember Me / Auto Login Checkbox */}
+            <div className="flex items-center justify-between pt-0.5">
+              <label className="flex items-center gap-2 cursor-pointer select-none group">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded border-slate-700 bg-slate-950 text-indigo-600 focus:ring-indigo-500/40 focus:ring-offset-0 cursor-pointer accent-indigo-600"
+                />
+                <span className="text-xs font-medium text-slate-300 group-hover:text-white transition-colors">
+                  로그인 상태 유지 <span className="text-slate-500 text-[11px] font-normal">(자동 로그인)</span>
+                </span>
+              </label>
             </div>
 
             <button

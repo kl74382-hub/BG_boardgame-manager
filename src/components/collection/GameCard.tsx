@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { Game } from '@/types';
 import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
+import { getGameReferenceInfo } from '@/lib/manual-helper';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface GameCardProps {
@@ -36,6 +37,7 @@ export const GameCard: React.FC<GameCardProps> = ({
   const showPrice = canViewPrivateFields(game.userId);
   const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn, game.boardlifeId);
   const bggLinks = getBggLinks(game.bggId, game.titleEn);
+  const refInfo = getGameReferenceInfo(game);
 
   // Complexity / Weight label
   const getWeightBadge = (weight?: number | null) => {
@@ -110,6 +112,20 @@ export const GameCard: React.FC<GameCardProps> = ({
 
           {/* Top Right Actions (Favorite & Direct Deep Links) */}
           <div className="absolute top-2 right-2 flex items-center gap-1">
+            {/* Reference Manual button (if dedicated manual available) */}
+            {refInfo.hasDedicatedManual && (
+              <a
+                href={refInfo.url}
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                title="규칙 참조표 (AutoManual) 바로가기"
+                className="p-1.5 rounded-full bg-black/60 hover:bg-emerald-600/90 text-emerald-400 hover:text-white backdrop-blur-md transition-colors border border-emerald-500/40 shadow-sm"
+              >
+                <span className="text-[10px] font-black px-0.5">참조</span>
+              </a>
+            )}
+
             {/* BoardLife direct button */}
             <a
               href={blLinks.infoUrl}

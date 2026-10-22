@@ -6,12 +6,24 @@ export interface VersionInfo {
   features: string[];
 }
 
-export const APP_VERSION = '1.2.0';
-export const APP_CODENAME = 'BoardGame Manager KR (Master Enriched)';
-export const APP_RELEASE_DATE = '2026-10-09';
+export const APP_VERSION = '1.3.0';
+export const APP_CODENAME = 'BoardGame Manager KR (AutoManual Integration)';
+export const APP_RELEASE_DATE = '2026-10-22';
 export const APP_CHANNEL: 'stable' | 'beta' | 'nightly' = 'stable';
 
 export const RELEASE_HISTORY: VersionInfo[] = [
+  {
+    version: '1.3.0',
+    codename: 'v1.3 AutoManual Reference Hub & Deep Links',
+    releaseDate: '2026-10-22',
+    channel: 'stable',
+    features: [
+      '컬렉션 상세 모달에 보드게임 규칙 참조표(AutoManual) 원클릭 직행 딥링크 연동',
+      'Rock Hard: 1977, Recall(리콜) 전용 웹 참조표 및 인쇄용 플레이어 에이드 바로가기 지원',
+      '참조표 허브 실시간 검색 및 사용자 지정 참조표 URL 직접 등록 기능 추가',
+      '컬렉션 카드에 전용 참조표 등록 배지(참조) 표시',
+    ],
+  },
   {
     version: '1.2.0',
     codename: 'v1.2 Master Enriched & Deep Links',

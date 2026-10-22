@@ -47,6 +47,7 @@ export interface Game {
   sleeves?: SleeveSpec[];     // Sleeve information
   organizer?: string | boolean | null; // e.g. "럭키식스 원목 오거나이저" or boolean
   notes?: string | null;      // Custom user notes
+  manualUrl?: string | null;  // Custom or override rule manual/reference URL
   links?: {
     boardlife?: string | null;
     rules?: string | null;

@@ -29,6 +29,7 @@ import {
 import { Game, Play, GameStatus } from '@/types';
 import { db } from '@/lib/db';
 import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
+import { getGameReferenceInfo } from '@/lib/manual-helper';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -55,6 +56,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   const [purchasePrice, setPurchasePrice] = useState<number | undefined>(undefined);
   const [organizer, setOrganizer] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
+  const [manualUrlInput, setManualUrlInput] = useState<string>('');
   const [sleeves, setSleeves] = useState(game?.sleeves || []);
   const [bggIdInput, setBggIdInput] = useState<number | undefined>(undefined);
   const [customImageUrl, setCustomImageUrl] = useState<string>('');
@@ -68,6 +70,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       setPurchasePrice(game.purchasePrice ?? undefined);
       setOrganizer(typeof game.organizer === 'string' ? game.organizer : (game.organizer ? '보유' : ''));
       setNotes(game.notes || '');
+      setManualUrlInput(game.manualUrl || '');
       setSleeves(game.sleeves || []);
       setBggIdInput(game.bggId ?? undefined);
       setCustomImageUrl(game.image || game.thumbnail || '');
@@ -80,6 +83,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
 
   const blLinks = getBoardLifeLinks(game.titleKr, game.titleEn, game.boardlifeId);
   const bggLinks = getBggLinks(game.bggId, game.titleEn);
+  const refInfo = getGameReferenceInfo(game);
   const gameStatsMap = calculateGameStatsMap([game], plays);
   const stats = gameStatsMap.get(game.id);
 
@@ -124,6 +128,7 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
       purchasePrice,
       organizer,
       notes,
+      manualUrl: manualUrlInput ? manualUrlInput.trim() : null,
       sleeves,
       bggId: bggIdInput,
       image: customImageUrl || game.image,
@@ -166,6 +171,20 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
             
             {/* Quick External Deep Links */}
             <div className="flex items-center gap-1.5 ml-2">
+              <a
+                href={refInfo.url}
+                target="_blank"
+                rel="noreferrer"
+                title={refInfo.hasDedicatedManual ? '전용 규칙 참조표 열기' : '참조표 허브에서 관련 규칙 검색'}
+                className={`px-2 py-0.5 rounded-lg border text-xs font-bold transition-colors flex items-center gap-1 ${
+                  refInfo.hasDedicatedManual
+                    ? 'bg-emerald-950/90 hover:bg-emerald-600 text-emerald-300 hover:text-white border-emerald-500/40 shadow-sm shadow-emerald-950'
+                    : 'bg-teal-950/70 hover:bg-teal-600 text-teal-400 hover:text-white border-teal-500/30'
+                }`}
+              >
+                <span>📖 {refInfo.hasDedicatedManual ? '규칙 참조표' : '참조표 허브'}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
               <a
                 href={blLinks.infoUrl}
                 target="_blank"
@@ -400,6 +419,118 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
               )}
             </div>
           )}
+
+          {/* Web Reference Manual & Rules (AutoManual 연동 허브) */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-teal-950/30 to-slate-900 border border-emerald-500/30 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                📖 보드게임 규칙 & 참조표 (AutoManual)
+              </span>
+              <span className="text-[11px] font-bold text-slate-400">
+                {refInfo.hasDedicatedManual ? (
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-black">
+                    ★ 전용 참조표 탑재
+                  </span>
+                ) : (
+                  <span>참조표 모음 허브</span>
+                )}
+              </span>
+            </div>
+
+            {refInfo.hasDedicatedManual ? (
+              <div className="space-y-2.5">
+                {refInfo.description && (
+                  <p className="text-xs text-slate-300">
+                    ✨ <strong className="text-emerald-300">{refInfo.title}</strong>: {refInfo.description}
+                  </p>
+                )}
+                <div className={`grid grid-cols-1 ${refInfo.aidUrl ? 'sm:grid-cols-3' : 'sm:grid-cols-2'} gap-2`}>
+                  <a
+                    href={refInfo.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3 rounded-xl bg-emerald-950/70 hover:bg-emerald-600/90 border border-emerald-500/40 text-emerald-200 hover:text-white flex items-center justify-between text-xs font-bold transition-all group shadow-sm"
+                  >
+                    <span className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-emerald-400 group-hover:text-white" />
+                      <div className="text-left">
+                        <div className="text-white font-extrabold">웹 규칙 & 상세 참조표</div>
+                        <div className="text-[10px] text-emerald-300/80 font-normal">에라타·FAQ 및 메모 지원</div>
+                      </div>
+                    </span>
+                    <ExternalLink className="w-4 h-4 text-emerald-400 group-hover:text-white" />
+                  </a>
+
+                  {refInfo.aidUrl && (
+                    <a
+                      href={refInfo.aidUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-3 rounded-xl bg-slate-800/90 hover:bg-teal-600/90 border border-slate-700 hover:border-teal-500/40 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-all group shadow-sm"
+                    >
+                      <span className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-teal-400 group-hover:text-white" />
+                        <div className="text-left">
+                          <div className="text-white font-extrabold">인쇄용 에이드 (A4)</div>
+                          <div className="text-[10px] text-slate-400 group-hover:text-white/80 font-normal">출력 최적화 2단 요약본</div>
+                        </div>
+                      </span>
+                      <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-white" />
+                    </a>
+                  )}
+
+                  <a
+                    href={refInfo.hubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-3 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-300 hover:text-white flex items-center justify-between text-xs font-bold transition-all group shadow-sm"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-sky-400" />
+                      <div className="text-left">
+                        <div className="text-white font-extrabold">전체 참조표 허브</div>
+                        <div className="text-[10px] text-slate-400 font-normal">다른 게임 참조표 둘러보기</div>
+                      </div>
+                    </span>
+                    <ExternalLink className="w-4 h-4 text-slate-500 group-hover:text-sky-400" />
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-xs text-slate-400">
+                  아직 이 게임의 전용 웹 참조표는 등록되지 않았습니다. 전체 참조표 허브에서 관련 자료를 검색하거나 둘러볼 수 있습니다.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <a
+                    href={refInfo.hubSearchUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-emerald-600/80 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-emerald-400 group-hover:text-white" />
+                      <span>참조표 허브에서 &quot;{game.titleKr}&quot; 검색</span>
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-white" />
+                  </a>
+
+                  <a
+                    href={refInfo.hubUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="p-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700/90 border border-slate-700 text-slate-200 hover:text-white flex items-center justify-between text-xs font-bold transition-colors group"
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Globe className="w-4 h-4 text-teal-400" />
+                      <span>보드게임 전체 참조표 모음</span>
+                    </span>
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-teal-400" />
+                  </a>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* BoardLife Direct Links (한국 보드게임 포털 연동 허브) */}
           <div className="p-4 rounded-2xl bg-gradient-to-r from-sky-950/40 to-indigo-950/40 border border-sky-500/30 space-y-3">
@@ -727,6 +858,19 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
                   placeholder="확장팩 소장 여부나 특이사항 기록..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-emerald-400 font-bold block mb-1">
+                  📖 규칙 참조표 URL 직접 지정 (선택)
+                </label>
+                <input
+                  type="url"
+                  value={manualUrlInput}
+                  onChange={(e) => setManualUrlInput(e.target.value)}
+                  placeholder="예: https://kl74382-hub.github.io/BG/RockHard1977.html (미입력 시 자동 매칭)"
                   className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
                 />
               </div>

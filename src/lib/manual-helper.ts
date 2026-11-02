@@ -37,6 +37,17 @@ export const KNOWN_MANUALS: ManualEntry[] = [
     bggIds: [418217],
     description: '키카드 사용, 행동 상자(A~F), 리콜 및 생산, 개발 액션(건설/발굴), 이동 규칙, 하우스 룰 & 메모',
   },
+  {
+    id: '23-knives',
+    title: '23 Knives (23개의 칼)',
+    subtitle: '전체 규칙서 & 개인 참조표 v1.0',
+    file: '23Knives.html',
+    aidFile: '23Knives_player_aid_v1.0_KO.html',
+    matchTitles: ['23개의 칼', '23칼', '23 knives', '23knives'],
+    bggIds: [418204],
+    boardlifeIds: [19787],
+    description: '3대 진영(충성파/해방파/기회주의자) 1:1 상쇄 규칙, 5개 장소 액션, 포룸 & 추방 투표, 원로원 23개 칼 개표 계산기 및 하우스 룰 & 메모',
+  },
 ];
 
 export interface GameReferenceInfo {

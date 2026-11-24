@@ -1,26 +1,34 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { 
   Plus, 
   Dices, 
   Search, 
-  Filter, 
-  Calendar, 
   MapPin, 
   Users, 
-  Clock, 
-  Trophy,
-  SlidersHorizontal
+  SlidersHorizontal,
+  X
 } from 'lucide-react';
 import { db } from '@/lib/db';
 import { Header } from '@/components/layout/Header';
 import { PlayCard } from '@/components/plays/PlayCard';
 import { LogPlayModal } from '@/components/plays/LogPlayModal';
+import {
+  SearchableFilterSelect,
+  SearchableFilterOption,
+} from '@/components/plays/SearchableFilterSelect';
+import {
+  PlayDateFilter,
+  PlayDateFilterState,
+  INITIAL_DATE_FILTER,
+  isDateFilterActive,
+  matchesPlayDateFilter,
+} from '@/components/plays/PlayDateFilter';
 import { UserViewSelector } from '@/components/layout/UserViewSelector';
-import { Play, Game } from '@/types';
-import { matchGameSearch } from '@/lib/hangul-search';
+import { Play } from '@/types';
+import { getGameSearchScore, getTextSearchScore } from '@/lib/hangul-search';
 import { useAuth } from '@/contexts/AuthContext';
 import { filterGamesForUser, filterPlaysForUser } from '@/lib/user-data-filter';
 
@@ -55,13 +63,24 @@ export default function PlaysPage() {
     }
   };
 
-  const allGames = useLiveQuery(() => db.games.toArray()) || [];
-  const allPlays = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray()) || [];
-  const players = useLiveQuery(() => db.players.toArray()) || [];
-  const locations = useLiveQuery(() => db.locations.toArray()) || [];
+  const allGamesQuery = useLiveQuery(() => db.games.toArray());
+  const allPlaysQuery = useLiveQuery(() => db.plays.orderBy('date').reverse().toArray());
+  const playersQuery = useLiveQuery(() => db.players.toArray());
+  const locationsQuery = useLiveQuery(() => db.locations.toArray());
 
-  const games = filterGamesForUser(allGames, user, selectedUserId);
-  const plays = filterPlaysForUser(allPlays, user, selectedUserId);
+  const allGames = useMemo(() => allGamesQuery ?? [], [allGamesQuery]);
+  const allPlays = useMemo(() => allPlaysQuery ?? [], [allPlaysQuery]);
+  const players = useMemo(() => playersQuery ?? [], [playersQuery]);
+  const locations = useMemo(() => locationsQuery ?? [], [locationsQuery]);
+
+  const games = useMemo(
+    () => filterGamesForUser(allGames, user, selectedUserId),
+    [allGames, user, selectedUserId]
+  );
+  const plays = useMemo(
+    () => filterPlaysForUser(allPlays, user, selectedUserId),
+    [allPlays, user, selectedUserId]
+  );
 
   // canManage: only if viewing own plays
   const isViewingOwn = selectedUserId === 'my' || (user && selectedUserId === user.id);
@@ -71,6 +90,7 @@ export default function PlaysPage() {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string>('all');
   const [selectedLocationId, setSelectedLocationId] = useState<string>('all');
   const [selectedGameId, setSelectedGameId] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<PlayDateFilterState>(INITIAL_DATE_FILTER);
 
   // Modal states
   const [isLogPlayOpen, setIsLogPlayOpen] = useState(false);
@@ -100,32 +120,208 @@ export default function PlaysPage() {
     setIsLogPlayOpen(true);
   };
 
-  // Filter logic
-  const filteredPlays = plays.filter(play => {
-    // 1. Game filter
-    if (selectedGameId !== 'all' && play.gameId !== selectedGameId) return false;
+  // Precompute lookup maps & searchable dropdown options with play counts
+  const playerMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of players) {
+      map.set(p.id, p.name);
+    }
+    return map;
+  }, [players]);
 
-    // 2. Player filter
-    if (selectedPlayerId !== 'all') {
-      if (!play.playerScores.some(ps => ps.playerId === selectedPlayerId)) return false;
+  const { gameOptions, playerOptions, locationOptions, locationNameById } = useMemo(() => {
+    const gCounts = new Map<string, number>();
+    const pCounts = new Map<string, number>();
+    const lCountsById = new Map<string, number>();
+    const lCountsByName = new Map<string, number>();
+
+    for (const play of plays) {
+      gCounts.set(play.gameId, (gCounts.get(play.gameId) || 0) + 1);
+      for (const ps of play.playerScores) {
+        pCounts.set(ps.playerId, (pCounts.get(ps.playerId) || 0) + 1);
+      }
+      if (play.locationId) {
+        lCountsById.set(play.locationId, (lCountsById.get(play.locationId) || 0) + 1);
+      } else if (play.locationName) {
+        lCountsByName.set(play.locationName, (lCountsByName.get(play.locationName) || 0) + 1);
+      }
     }
 
-    // 3. Location filter
-    if (selectedLocationId !== 'all' && play.locationId !== selectedLocationId) return false;
-
-    // 4. Text / Hangul search
-    if (searchQuery.trim()) {
-      const matchGame = matchGameSearch(
-        { titleKr: play.gameTitleKr || '', titleEn: play.gameTitleEn || '' },
-        searchQuery
-      );
-      const matchNotes = play.notes && play.notes.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchLoc = play.locationName && play.locationName.toLowerCase().includes(searchQuery.toLowerCase());
-      if (!matchGame && !matchNotes && !matchLoc) return false;
+    const seenGameIds = new Set<string>();
+    const builtGames: SearchableFilterOption[] = [];
+    for (const g of games) {
+      seenGameIds.add(g.id);
+      const count = gCounts.get(g.id) || 0;
+      builtGames.push({
+        value: g.id,
+        label: g.titleKr,
+        subLabel: g.titleEn && g.titleEn !== g.titleKr ? g.titleEn : undefined,
+        badge: count > 0 ? `${count}회` : undefined,
+        searchGame: {
+          titleKr: g.titleKr,
+          titleEn: g.titleEn,
+          publisherKr: g.publisherKr,
+          categories: g.categories,
+          mechanics: g.mechanics,
+        },
+      });
+    }
+    // Include games that appear in plays even if missing from the games table
+    for (const play of plays) {
+      if (!seenGameIds.has(play.gameId)) {
+        seenGameIds.add(play.gameId);
+        const count = gCounts.get(play.gameId) || 0;
+        const titleKr = play.gameTitleKr || play.gameTitleEn || '보드게임';
+        const titleEn = play.gameTitleEn || '';
+        builtGames.push({
+          value: play.gameId,
+          label: titleKr,
+          subLabel: titleEn && titleEn !== titleKr ? titleEn : undefined,
+          badge: count > 0 ? `${count}회` : undefined,
+          searchGame: { titleKr, titleEn },
+        });
+      }
     }
 
-    return true;
-  });
+    const builtPlayers: SearchableFilterOption[] = players.map((p) => {
+      const count = pCounts.get(p.id) || 0;
+      return {
+        value: p.id,
+        label: `${p.name}${p.isUser ? ' (나)' : ''}`,
+        prefixIcon: p.avatar || '🎲',
+        badge: count > 0 ? `${count}회` : undefined,
+        searchTexts: [p.name, ...(p.bggUsername ? [p.bggUsername] : [])],
+      };
+    });
+
+    const locNameMap = new Map<string, string>();
+    const knownLocationNames = new Set<string>();
+    const builtLocations: SearchableFilterOption[] = locations.map((loc) => {
+      locNameMap.set(loc.id, loc.name);
+      knownLocationNames.add(loc.name);
+      const count = (lCountsById.get(loc.id) || 0) + (lCountsByName.get(loc.name) || 0);
+      return {
+        value: loc.id,
+        label: loc.name,
+        badge: count > 0 ? `${count}회` : undefined,
+        searchTexts: [loc.name],
+      };
+    });
+    // Include ad-hoc location names stored on plays without a locationId
+    for (const [locName, count] of Array.from(lCountsByName.entries())) {
+      if (!knownLocationNames.has(locName)) {
+        const syntheticId = `name:${locName}`;
+        locNameMap.set(syntheticId, locName);
+        builtLocations.push({
+          value: syntheticId,
+          label: locName,
+          badge: `${count}회`,
+          searchTexts: [locName],
+        });
+      }
+    }
+
+    return {
+      gameOptions: builtGames,
+      playerOptions: builtPlayers,
+      locationOptions: builtLocations,
+      locationNameById: locNameMap,
+    };
+  }, [games, players, locations, plays]);
+
+  // Filter & priority-sort logic
+  const filteredPlays = useMemo(() => {
+    const trimmedSearch = searchQuery.trim();
+    const selectedLocationName =
+      selectedLocationId !== 'all' ? locationNameById.get(selectedLocationId) : undefined;
+
+    const matched: Array<{ play: Play; score: number }> = [];
+
+    for (const play of plays) {
+      // 1. Game filter
+      if (selectedGameId !== 'all' && play.gameId !== selectedGameId) continue;
+
+      // 2. Player filter
+      if (selectedPlayerId !== 'all') {
+        if (!play.playerScores.some((ps) => ps.playerId === selectedPlayerId)) continue;
+      }
+
+      // 3. Location filter (matches by ID or cached name)
+      if (selectedLocationId !== 'all') {
+        const matchesId = play.locationId === selectedLocationId;
+        const matchesName = Boolean(
+          selectedLocationName && play.locationName === selectedLocationName
+        );
+        if (!matchesId && !matchesName) continue;
+      }
+
+      // 4. Play date filter
+      if (!matchesPlayDateFilter(play.date, dateFilter)) continue;
+
+      // 5. Text / Hangul Chosung search with prefix priority scoring
+      if (trimmedSearch) {
+        const gameScore = getGameSearchScore(
+          { titleKr: play.gameTitleKr || '', titleEn: play.gameTitleEn || '' },
+          trimmedSearch
+        );
+        const locScore = play.locationName
+          ? getTextSearchScore(play.locationName, trimmedSearch)
+          : 0;
+        let playerScore = 0;
+        for (const ps of play.playerScores) {
+          const pName = ps.name || playerMap.get(ps.playerId) || '';
+          if (pName) {
+            const s = getTextSearchScore(pName, trimmedSearch);
+            if (s > playerScore) playerScore = s;
+          }
+        }
+        const notesScore =
+          play.notes && getTextSearchScore(play.notes, trimmedSearch) > 0 ? 25 : 0;
+
+        const bestScore = Math.max(gameScore, locScore, playerScore, notesScore);
+        if (bestScore === 0) continue;
+        matched.push({ play, score: bestScore });
+      } else {
+        matched.push({ play, score: 0 });
+      }
+    }
+
+    // When searchQuery is active, prioritize prefix/chosung-start matches first,
+    // preserving reverse chronological order within the same priority tier
+    if (trimmedSearch) {
+      matched.sort((a, b) => {
+        if (b.score !== a.score) return b.score - a.score;
+        return (b.play.date || '').localeCompare(a.play.date || '');
+      });
+    }
+
+    return matched.map((item) => item.play);
+  }, [
+    plays,
+    selectedGameId,
+    selectedPlayerId,
+    selectedLocationId,
+    locationNameById,
+    dateFilter,
+    searchQuery,
+    playerMap,
+  ]);
+
+  const dateFilterActive = isDateFilterActive(dateFilter);
+  const activeFilterCount =
+    (selectedGameId !== 'all' ? 1 : 0) +
+    (selectedPlayerId !== 'all' ? 1 : 0) +
+    (selectedLocationId !== 'all' ? 1 : 0) +
+    (dateFilterActive ? 1 : 0) +
+    (searchQuery.trim() ? 1 : 0);
+
+  const handleResetAllFilters = () => {
+    setSelectedGameId('all');
+    setSelectedPlayerId('all');
+    setSelectedLocationId('all');
+    setDateFilter(INITIAL_DATE_FILTER);
+    setSearchQuery('');
+  };
 
   const totalFilteredMinutes = filteredPlays.reduce((acc, p) => acc + (p.durationMinutes || 0), 0);
   const totalFilteredHours = Math.round(totalFilteredMinutes / 60);
@@ -138,7 +334,7 @@ export default function PlaysPage() {
         subtitle="보드게임 세션 기록, 점수표, 승패 통계 관리"
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="게임명, 초성(ㅌㅍㅁ), 장소, 메모 검색..."
+        searchPlaceholder="게임명, 초성(ㄱ, ㅌㅍㅁ), 영문(A), 플레이어, 장소 검색..."
         onOpenLogPlay={() => handleOpenLogPlay()}
       />
 
@@ -154,19 +350,20 @@ export default function PlaysPage() {
 
         {/* Filters Bar */}
         <div className="p-4 bg-slate-900/90 border border-slate-800 rounded-2xl space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-400" />
               <span>상세 필터</span>
+              {activeFilterCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-[10px] font-bold">
+                  {activeFilterCount}개 적용중
+                </span>
+              )}
             </span>
-            {(selectedGameId !== 'all' || selectedPlayerId !== 'all' || selectedLocationId !== 'all' || searchQuery) && (
+            {activeFilterCount > 0 && (
               <button
-                onClick={() => {
-                  setSelectedGameId('all');
-                  setSelectedPlayerId('all');
-                  setSelectedLocationId('all');
-                  setSearchQuery('');
-                }}
+                type="button"
+                onClick={handleResetAllFilters}
                 className="text-xs text-indigo-400 hover:text-indigo-300 font-semibold"
               >
                 필터 초기화
@@ -174,52 +371,67 @@ export default function PlaysPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Game Selector */}
-            <div>
-              <label className="text-[11px] text-slate-400 font-medium block mb-1">게임별 필터</label>
-              <select
-                value={selectedGameId}
-                onChange={(e) => setSelectedGameId(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
+          {/* Mobile Quick Search (since Header search is hidden on xs screens) */}
+          <div className="sm:hidden relative">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="게임명, 초성(ㄱ, ㅌㅍㅁ), 영문(A) 검색..."
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-8 pr-8 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                aria-label="검색어 지우기"
               >
-                <option value="all">전체 게임 ({games.length}종)</option>
-                {games.map(g => (
-                  <option key={g.id} value={g.id}>{g.titleKr}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Player Selector */}
-            <div>
-              <label className="text-[11px] text-slate-400 font-medium block mb-1">플레이어별 필터</label>
-              <select
-                value={selectedPlayerId}
-                onChange={(e) => setSelectedPlayerId(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
-              >
-                <option value="all">전체 플레이어</option>
-                {players.map(p => (
-                  <option key={p.id} value={p.id}>{p.avatar} {p.name} {p.isUser ? '(나)' : ''}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Location Selector */}
-            <div>
-              <label className="text-[11px] text-slate-400 font-medium block mb-1">장소별 필터</label>
-              <select
-                value={selectedLocationId}
-                onChange={(e) => setSelectedLocationId(e.target.value)}
-                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-white"
-              >
-                <option value="all">전체 장소</option>
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
-                ))}
-              </select>
-            </div>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
+
+          {/* Searchable Entity Filters (Game / Player / Location) */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <SearchableFilterSelect
+              label="게임별 필터"
+              icon={<Dices className="w-3 h-3 text-indigo-400" />}
+              value={selectedGameId}
+              onChange={setSelectedGameId}
+              options={gameOptions}
+              allLabel={`전체 게임 (${gameOptions.length}종)`}
+              searchPlaceholder="게임명, 초성(ㄱ, ㅌㅍㅁ), 영문(A)..."
+            />
+
+            <SearchableFilterSelect
+              label="플레이어별 필터"
+              icon={<Users className="w-3 h-3 text-indigo-400" />}
+              value={selectedPlayerId}
+              onChange={setSelectedPlayerId}
+              options={playerOptions}
+              allLabel={`전체 플레이어 (${playerOptions.length}명)`}
+              searchPlaceholder="플레이어명, 초성(ㄱ, ㅂ) 검색..."
+            />
+
+            <SearchableFilterSelect
+              label="장소별 필터"
+              icon={<MapPin className="w-3 h-3 text-indigo-400" />}
+              value={selectedLocationId}
+              onChange={setSelectedLocationId}
+              options={locationOptions}
+              allLabel={`전체 장소 (${locationOptions.length}곳)`}
+              searchPlaceholder="장소명, 초성(ㄱ, ㅇ) 검색..."
+            />
+          </div>
+
+          {/* Play Date Filter */}
+          <PlayDateFilter
+            plays={plays}
+            value={dateFilter}
+            onChange={setDateFilter}
+          />
         </div>
 
         {/* Results Summary Bar */}

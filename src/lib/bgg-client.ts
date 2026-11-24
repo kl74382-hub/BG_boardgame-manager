@@ -32,24 +32,37 @@ export interface BGGGameDetails {
   description?: string;
 }
 
+const BGG_FETCH_TIMEOUT_MS = 10_000;
+
 const parser = new XMLParser({
   ignoreAttributes: false,
   attributeNamePrefix: '@_',
   textNodeName: '#text',
   parseAttributeValue: true,
+  processEntities: {
+    enabled: true,
+    maxEntityCount: 0,
+    maxTotalExpansions: 1000,
+    maxExpandedLength: 100_000,
+  },
 });
+
+function createBggHeaders(token?: string): Record<string, string> {
+  const headers: Record<string, string> = {
+    'User-Agent': 'BGStatsKorea/1.0',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
 
 export async function searchBGG(query: string, token?: string): Promise<BGGSearchResult[]> {
   try {
     const url = `${BGG_API_BASE}/search?query=${encodeURIComponent(query)}&type=boardgame,boardgameexpansion`;
-    const headers: Record<string, string> = {
-      'User-Agent': 'BGStatsKorea/1.0',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers = createBggHeaders(token);
 
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(BGG_FETCH_TIMEOUT_MS) });
     if (!res.ok) {
       console.warn(`BGG search returned status ${res.status}`);
       return [];
@@ -86,16 +99,14 @@ export async function searchBGG(query: string, token?: string): Promise<BGGSearc
 }
 
 export async function fetchBGGGameDetails(bggId: number, token?: string): Promise<BGGGameDetails | null> {
+  if (!Number.isInteger(bggId) || bggId <= 0) {
+    return null;
+  }
   try {
     const url = `${BGG_API_BASE}/thing?id=${bggId}&stats=1`;
-    const headers: Record<string, string> = {
-      'User-Agent': 'BGStatsKorea/1.0',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers = createBggHeaders(token);
 
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(BGG_FETCH_TIMEOUT_MS) });
     if (!res.ok) return null;
 
     const xml = await res.text();
@@ -205,21 +216,16 @@ export async function fetchBGGGameDetails(bggId: number, token?: string): Promis
 export async function fetchBGGUserCollection(username: string, token?: string): Promise<Partial<Game>[]> {
   try {
     const url = `${BGG_API_BASE}/collection?username=${encodeURIComponent(username)}&stats=1`;
-    const headers: Record<string, string> = {
-      'User-Agent': 'BGStatsKorea/1.0',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers = createBggHeaders(token);
 
     // Handle BGG HTTP 202 Retry queue
-    let res = await fetch(url, { headers });
+    let res = await fetch(url, { headers, signal: AbortSignal.timeout(BGG_FETCH_TIMEOUT_MS) });
     let attempts = 0;
     while (res.status === 202 && attempts < 3) {
       attempts++;
       console.log(`BGG collection queue in progress, retrying in 2 seconds... (attempt ${attempts})`);
       await new Promise(resolve => setTimeout(resolve, 2500));
-      res = await fetch(url, { headers });
+      res = await fetch(url, { headers, signal: AbortSignal.timeout(BGG_FETCH_TIMEOUT_MS) });
     }
 
     if (!res.ok) return [];
@@ -294,14 +300,9 @@ export async function fetchBGGUserCollection(username: string, token?: string): 
 export async function fetchBGGUserPlays(username: string, token?: string): Promise<Partial<Play>[]> {
   try {
     const url = `${BGG_API_BASE}/plays?username=${encodeURIComponent(username)}`;
-    const headers: Record<string, string> = {
-      'User-Agent': 'BGStatsKorea/1.0',
-    };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
+    const headers = createBggHeaders(token);
 
-    const res = await fetch(url, { headers });
+    const res = await fetch(url, { headers, signal: AbortSignal.timeout(BGG_FETCH_TIMEOUT_MS) });
     if (!res.ok) return [];
 
     const xml = await res.text();

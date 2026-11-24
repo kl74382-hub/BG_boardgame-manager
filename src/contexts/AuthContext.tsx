@@ -26,10 +26,16 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const LOCAL_STORAGE_USER_KEY = 'bg_stats_user_session';
 const LOCAL_STORAGE_USERS_DB_KEY = 'bg_stats_registered_accounts';
 
+// Local/offline fallback auth is allowed only when Supabase is not configured AND
+// either running in development or explicitly opted-in via NEXT_PUBLIC_ALLOW_LOCAL_DEMO=true.
+const isLocalDemoAllowed =
+  !isSupabaseConfigured &&
+  (process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_ALLOW_LOCAL_DEMO === 'true');
+
 export interface RegisteredAccount {
   id: string;
   email: string;
-  password: string;
+  passwordHash?: string;
   nickname: string;
   role: 'admin' | 'user';
   avatarUrl?: string;
@@ -40,7 +46,8 @@ export const DEFAULT_ACCOUNTS: RegisteredAccount[] = [
   {
     id: 'admin-nana',
     email: 'admin@bgstats.kr',
-    password: 'admin1234',
+    // SHA-256 for "admin@bgstats.kr:admin1234"
+    passwordHash: 'e7b8bdd15d42b3ba0ec548d3f765545da12a6d0d42cf501c64f450bb50578544',
     nickname: 'Nana (소유자/관리자)',
     role: 'admin',
     avatarUrl: '👑',
@@ -49,15 +56,43 @@ export const DEFAULT_ACCOUNTS: RegisteredAccount[] = [
   {
     id: 'user-demo-1',
     email: 'user@bgstats.kr',
-    password: 'user1234',
+    // SHA-256 for "user@bgstats.kr:user1234"
+    passwordHash: '00812dfadb88cbdd7b9ccccc4ee9e3a4df10e75b53774c5e43b24ca1994a3943',
     nickname: '보드게임친구',
     role: 'user',
     avatarUrl: '🎲',
   },
 ];
 
+async function hashLocalPassword(email: string, password: string): Promise<string> {
+  const input = `${email.toLowerCase()}:${password}`;
+  if (typeof window !== 'undefined' && window.crypto?.subtle) {
+    const data = new TextEncoder().encode(input);
+    const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  throw new Error('Web Crypto API is unavailable in this environment.');
+}
+
+function sanitizeStoredAccount(raw: any): RegisteredAccount | null {
+  if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || typeof raw.email !== 'string') {
+    return null;
+  }
+  return {
+    id: raw.id,
+    email: raw.email,
+    passwordHash: typeof raw.passwordHash === 'string' ? raw.passwordHash : undefined,
+    nickname: typeof raw.nickname === 'string' ? raw.nickname : '보드게이머',
+    role: raw.role === 'admin' ? 'admin' : 'user',
+    avatarUrl: typeof raw.avatarUrl === 'string' ? raw.avatarUrl : undefined,
+    bggUsername: typeof raw.bggUsername === 'string' ? raw.bggUsername : undefined,
+  };
+}
+
 export function getRegisteredAccounts(): RegisteredAccount[] {
-  if (typeof window === 'undefined') return DEFAULT_ACCOUNTS;
+  if (typeof window === 'undefined' || isSupabaseConfigured) return DEFAULT_ACCOUNTS;
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_USERS_DB_KEY);
     if (!raw) {
@@ -65,14 +100,45 @@ export function getRegisteredAccounts(): RegisteredAccount[] {
       return DEFAULT_ACCOUNTS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : DEFAULT_ACCOUNTS;
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      localStorage.setItem(LOCAL_STORAGE_USERS_DB_KEY, JSON.stringify(DEFAULT_ACCOUNTS));
+      return DEFAULT_ACCOUNTS;
+    }
+
+    // Strip legacy plaintext and ensure default accounts have passwordHash
+    const hasLegacyPlaintext = parsed.some((item: any) => item && typeof item.password === 'string');
+    const sanitized = parsed
+      .map(sanitizeStoredAccount)
+      .filter((item): item is RegisteredAccount => item !== null);
+
+    let needUpdate = hasLegacyPlaintext;
+    const finalAccounts = sanitized.map((acc) => {
+      const def = DEFAULT_ACCOUNTS.find((d) => d.email.toLowerCase() === acc.email.toLowerCase());
+      if (def && def.passwordHash && !acc.passwordHash) {
+        needUpdate = true;
+        return { ...acc, passwordHash: def.passwordHash, role: def.role };
+      }
+      return acc;
+    });
+
+    // Ensure admin account always exists in local dev
+    if (!finalAccounts.some((a) => a.role === 'admin' || a.id === 'admin-nana')) {
+      finalAccounts.unshift(DEFAULT_ACCOUNTS[0]);
+      needUpdate = true;
+    }
+
+    if (needUpdate && finalAccounts.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_USERS_DB_KEY, JSON.stringify(finalAccounts));
+    }
+
+    return finalAccounts.length > 0 ? finalAccounts : DEFAULT_ACCOUNTS;
   } catch {
     return DEFAULT_ACCOUNTS;
   }
 }
 
 export function saveRegisteredAccount(newAccount: RegisteredAccount) {
-  if (typeof window === 'undefined') return;
+  if (typeof window === 'undefined' || !isLocalDemoAllowed) return;
   const accounts = getRegisteredAccounts();
   const filtered = accounts.filter(a => a.email.toLowerCase() !== newAccount.email.toLowerCase());
   filtered.push(newAccount);
@@ -87,28 +153,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Initialize session
   useEffect(() => {
     const initAuth = async () => {
-      // Ensure default accounts exist in localStorage
-      if (typeof window !== 'undefined') {
-        getRegisteredAccounts();
-      }
-
-      // 1. If Supabase is configured, use Supabase session
+      // 1. If Supabase is configured, strictly trust Supabase Auth session (never fall back to localStorage spoofing)
       if (isSupabaseConfigured) {
         try {
           const { data: { session } } = await supabase.auth.getSession();
           if (session?.user) {
             await fetchUserProfile(session.user.id, session.user.email || '');
           } else {
-            // Check for saved local demo user if no Supabase session
-            loadSavedLocalUser();
+            clearUserSession();
           }
         } catch (err) {
           console.error('Error fetching Supabase session:', err);
-          loadSavedLocalUser();
+          clearUserSession();
         }
-      } else {
-        // Supabase not configured yet - load local session (demo admin/user/guest)
+      } else if (isLocalDemoAllowed) {
+        // Local dev / explicitly enabled local mode only
+        getRegisteredAccounts();
         loadSavedLocalUser();
+      } else {
+        clearUserSession();
       }
       setLoading(false);
     };
@@ -224,34 +287,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!isSupabaseConfigured) {
-      const accounts = getRegisteredAccounts();
-      const account = accounts.find(a => a.email.toLowerCase() === cleanEmail);
+      if (!isLocalDemoAllowed) {
+        return { error: '프로덕션 환경에서는 Supabase 인증 설정이 필요합니다.' };
+      }
 
-      // Special alias: allow nana@bgstats.kr as admin
-      if (!account && cleanEmail === 'nana@bgstats.kr') {
-        const adminAcc = DEFAULT_ACCOUNTS[0];
-        if (cleanPw !== adminAcc.password) {
-          return { error: '이메일 또는 비밀번호가 일치하지 않습니다.' };
-        }
-        const adminProfile: UserProfile = {
-          id: adminAcc.id,
-          email: adminAcc.email,
-          nickname: adminAcc.nickname,
-          role: adminAcc.role,
-          avatarUrl: adminAcc.avatarUrl,
-          bggUsername: adminAcc.bggUsername,
-        };
-        saveUserSession(adminProfile, rememberMe);
-        setIsAuthModalOpen(false);
-        return {};
+      const accounts = getRegisteredAccounts();
+      let targetEmail = cleanEmail;
+      let account = accounts.find(a => a.email.toLowerCase() === targetEmail);
+
+      // Support alias: nana@bgstats.kr -> admin@bgstats.kr
+      if (!account && targetEmail === 'nana@bgstats.kr') {
+        targetEmail = 'admin@bgstats.kr';
+        account = accounts.find(a => a.email.toLowerCase() === targetEmail);
       }
 
       if (!account) {
         return { error: '등록되지 않은 계정입니다. 회원가입 탭에서 먼저 가입해주세요.' };
       }
 
-      if (account.password !== cleanPw) {
-        return { error: '이메일 또는 비밀번호가 일치하지 않습니다.' };
+      if (!account.passwordHash) {
+        return { error: '비밀번호가 설정되지 않은 계정입니다. 관리자 계정 초기 비밀번호는 admin1234 입니다.' };
+      }
+
+      const inputHash = await hashLocalPassword(targetEmail, cleanPw);
+      if (account.passwordHash !== inputHash) {
+        return { 
+          error: account.role === 'admin'
+            ? '관리자 비밀번호가 일치하지 않습니다. (초기 PW: admin1234)'
+            : '이메일 또는 비밀번호가 일치하지 않습니다.' 
+        };
       }
 
       const profile: UserProfile = {
@@ -295,15 +359,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!isSupabaseConfigured) {
+      if (!isLocalDemoAllowed) {
+        return { error: '프로덕션 환경에서는 Supabase 인증 설정이 필요합니다.' };
+      }
+
+      if (cleanPw.length < 8) {
+        return { error: '비밀번호는 최소 8자 이상 입력해주세요.' };
+      }
+
       const accounts = getRegisteredAccounts();
       if (accounts.some(a => a.email.toLowerCase() === cleanEmail)) {
         return { error: '이미 등록된 이메일 주소입니다. 다른 이메일로 가입해주세요.' };
       }
 
+      const passwordHash = await hashLocalPassword(cleanEmail, cleanPw);
       const newAccount: RegisteredAccount = {
         id: `user-${Date.now()}`,
         email: cleanEmail,
-        password: cleanPw,
+        passwordHash,
         nickname: cleanNick,
         role: 'user',
         avatarUrl: '🎲',
@@ -329,7 +402,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         options: {
           data: {
             nickname: cleanNick,
-            role: 'user',
           },
         },
       });
@@ -346,8 +418,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loginWithOAuth = async (provider: 'google' | 'kakao') => {
     if (!isSupabaseConfigured) {
-      // Demo OAuth fallback -> user
-      await loginWithEmail('user@bgstats.kr', 'user1234', true);
+      console.warn('OAuth login requires Supabase configuration.');
       return;
     }
     await supabase.auth.signInWithOAuth({

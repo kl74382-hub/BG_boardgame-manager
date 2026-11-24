@@ -99,10 +99,13 @@ export default function SettingsPage() {
     try {
       const queryParams = new URLSearchParams({
         username: settings.bggUsername.trim(),
-        ...(settings.bggApiToken ? { token: settings.bggApiToken.trim() } : {})
       });
+      const headers: Record<string, string> = {};
+      if (settings.bggApiToken?.trim()) {
+        headers['X-BGG-Token'] = settings.bggApiToken.trim();
+      }
 
-      const res = await fetch(`/api/bgg/collection?${queryParams.toString()}`);
+      const res = await fetch(`/api/bgg/collection?${queryParams.toString()}`, { headers });
       const data = await res.json();
 
       if (!res.ok || data.error) {
@@ -161,10 +164,13 @@ export default function SettingsPage() {
     try {
       const queryParams = new URLSearchParams({
         username: settings.bggUsername.trim(),
-        ...(settings.bggApiToken ? { token: settings.bggApiToken.trim() } : {})
       });
+      const headers: Record<string, string> = {};
+      if (settings.bggApiToken?.trim()) {
+        headers['X-BGG-Token'] = settings.bggApiToken.trim();
+      }
 
-      const res = await fetch(`/api/bgg/plays?${queryParams.toString()}`);
+      const res = await fetch(`/api/bgg/plays?${queryParams.toString()}`, { headers });
       const data = await res.json();
 
       if (!res.ok || data.error) {

@@ -234,6 +234,31 @@ export const AuthModal: React.FC = () => {
             </button>
           </form>
 
+          {/* Quick local account tip if in local session mode */}
+          {!isConfigured && mode === 'login' && (
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 text-[11px] text-slate-400 space-y-1.5">
+              <div className="flex items-center justify-between text-slate-300 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <Crown className="w-3.5 h-3.5 text-amber-400" />
+                  <span>관리자(Nana) 로그인 안내</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmail('admin@bgstats.kr');
+                    setPassword('admin1234');
+                  }}
+                  className="text-indigo-400 hover:text-indigo-300 font-semibold px-2 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-[10px] transition-colors"
+                >
+                  관리자 계정 채우기
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-400">
+                계정: <span className="text-slate-200 font-mono">admin@bgstats.kr</span> • 초기 비밀번호: <span className="text-slate-200 font-mono">admin1234</span>
+              </p>
+            </div>
+          )}
+
           {/* Cloud Status indicator */}
           <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">
             <span className="flex items-center gap-1.5">

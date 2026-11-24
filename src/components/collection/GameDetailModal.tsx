@@ -29,7 +29,7 @@ import {
 import { Game, Play, GameStatus } from '@/types';
 import { db } from '@/lib/db';
 import { getBoardLifeLinks, getBggLinks } from '@/lib/boardlife-helper';
-import { getGameReferenceInfo } from '@/lib/manual-helper';
+import { getGameReferenceInfo, sanitizeExternalUrl } from '@/lib/manual-helper';
 import { calculateGameStatsMap } from '@/lib/stats-calculator';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -122,17 +122,32 @@ export const GameDetailModal: React.FC<GameDetailModalProps> = ({
   };
 
   const handleSaveEdit = async () => {
+    const trimmedManualUrl = manualUrlInput.trim();
+    if (trimmedManualUrl && !sanitizeExternalUrl(trimmedManualUrl)) {
+      alert('규칙 참조표 URL은 http:// 또는 https://로 시작하는 올바른 주소만 입력할 수 있습니다.');
+      return;
+    }
+
+    const trimmedImageUrl = customImageUrl.trim();
+    if (trimmedImageUrl && !sanitizeExternalUrl(trimmedImageUrl)) {
+      alert('이미지 URL은 http:// 또는 https://로 시작하는 올바른 주소만 입력할 수 있습니다.');
+      return;
+    }
+
+    const safeManualUrl = trimmedManualUrl ? sanitizeExternalUrl(trimmedManualUrl) : null;
+    const safeImageUrl = trimmedImageUrl ? sanitizeExternalUrl(trimmedImageUrl) : undefined;
+
     await db.games.update(game.id, {
       status,
       userRating,
       purchasePrice,
       organizer,
       notes,
-      manualUrl: manualUrlInput ? manualUrlInput.trim() : null,
+      manualUrl: safeManualUrl,
       sleeves,
       bggId: bggIdInput,
-      image: customImageUrl || game.image,
-      thumbnail: customImageUrl || game.thumbnail,
+      image: safeImageUrl || game.image,
+      thumbnail: safeImageUrl || game.thumbnail,
       updatedAt: new Date().toISOString(),
     });
     setImgError(false);

@@ -65,14 +65,33 @@ function cleanTitle(str?: string | null): string {
   return str.toLowerCase().replace(/[\s:_\-–—]/g, '');
 }
 
+/**
+ * Validates and normalizes an external URL, allowing only http: and https: protocols.
+ * Rejects dangerous schemes such as javascript:, data:, vbscript:, etc.
+ */
+export function sanitizeExternalUrl(raw?: string | null): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return null;
+    }
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function getGameReferenceInfo(game: Game): GameReferenceInfo {
-  // 1. Custom URL directly assigned to the game
-  if (game.manualUrl && game.manualUrl.trim().length > 0) {
-    const url = game.manualUrl.trim();
+  // 1. Custom URL directly assigned to the game (only allow http/https URLs)
+  const safeCustomUrl = sanitizeExternalUrl(game.manualUrl);
+  if (safeCustomUrl) {
     return {
       hasDedicatedManual: true,
       title: `${game.titleKr} 전용 참조표`,
-      url,
+      url: safeCustomUrl,
       hubUrl: MANUAL_HUB_URL,
       hubSearchUrl: `${MANUAL_HUB_URL}?q=${encodeURIComponent(game.titleKr)}`,
       description: '사용자 지정 전용 참조표 링크',

@@ -45,8 +45,25 @@ export const KNOWN_MANUALS: ManualEntry[] = [
     aidFile: '23Knives_player_aid_v1.0_KO.html',
     matchTitles: ['23개의 칼', '23칼', '23 knives', '23knives'],
     bggIds: [418204],
-    boardlifeIds: [19787],
     description: '3대 진영(충성파/해방파/기회주의자) 1:1 상쇄 규칙, 5개 장소 액션, 포룸 & 추방 투표, 원로원 23개 칼 개표 계산기 및 하우스 룰 & 메모',
+  },
+  {
+    id: 'greenwood',
+    title: 'Greenwood (그린우드)',
+    subtitle: '개인 참조표 & 클랜·위협 가이드 v1.0',
+    file: 'Greenwood.html',
+    aidFile: 'Greenwood_player_aid_v1.0_KO.html',
+    matchTitles: ['그린우드', 'greenwood'],
+    description: '3라운드 4개 시간대(황혼·출정·밤·새벽) & 복귀 흐름, 에너지·스파이·탐사, 4대 숲 행동 및 잠수함 배치, 위협 15종·타워 효과·동료 FAQ 및 7개 클랜 모드',
+  },
+  {
+    id: 'orloj',
+    title: 'Orloj (오를로이: 프라하 천문시계)',
+    subtitle: '개인 참조표 & 프로모·1인(요세프) 통합 가이드 v1.0',
+    file: 'Orloj.html',
+    aidFile: 'Orloj_player_aid_v1.0_KO.html',
+    matchTitles: ['오를로이', '오를로이: 프라하 천문시계', 'orloj', 'orloj: the prague astronomical clock'],
+    description: '천문·시계 이중 원판 조작, 3대 지식 트랙(혁신/정밀/관찰), 바깥 고리 6종 & 조각가 4종, 보조 행동 6종, 수탉 울음 및 프로모(첨탑·망치 2장) + 1인(요세프)',
   },
 ];
 
@@ -98,26 +115,24 @@ export function getGameReferenceInfo(game: Game): GameReferenceInfo {
     };
   }
 
-  // 2. Match against registered known manuals
+  // 2. Match against registered known manuals (title match first to prevent ID collisions, then BGG/Boardlife IDs)
   const normKr = cleanTitle(game.titleKr);
   const normEn = cleanTitle(game.titleEn);
 
-  const matched = KNOWN_MANUALS.find((m) => {
-    // Check ID match
-    if (game.bggId && m.bggIds && m.bggIds.includes(game.bggId)) return true;
-    if (game.boardlifeId && m.boardlifeIds && m.boardlifeIds.includes(game.boardlifeId)) return true;
-
-    // Check title match
-    return m.matchTitles.some((alias) => {
+  const matchesTitle = (m: ManualEntry) =>
+    m.matchTitles.some((alias) => {
       const normAlias = cleanTitle(alias);
       if (!normAlias) return false;
       return (
-        normKr.includes(normAlias) ||
-        normAlias.includes(normKr) ||
-        (normEn && (normEn.includes(normAlias) || normAlias.includes(normEn)))
+        (normKr.length > 0 && (normKr.includes(normAlias) || normAlias.includes(normKr))) ||
+        (normEn.length > 0 && (normEn.includes(normAlias) || normAlias.includes(normEn)))
       );
     });
-  });
+
+  const matched =
+    KNOWN_MANUALS.find(matchesTitle) ||
+    KNOWN_MANUALS.find((m) => Boolean(game.bggId && m.bggIds && m.bggIds.includes(game.bggId))) ||
+    KNOWN_MANUALS.find((m) => Boolean(game.boardlifeId && m.boardlifeIds && m.boardlifeIds.includes(game.boardlifeId)));
 
   if (matched) {
     return {
